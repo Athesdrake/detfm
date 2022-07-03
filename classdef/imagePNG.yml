@@ -1,0 +1,42 @@
+classes:
+  - action:
+      rename: ImagePNG
+    strict: true
+    static traits:
+      - action:
+          rename: crcTable
+        slotid: 1
+        type: Array
+
+      - action:
+          rename: crcTableComputed
+        slotid: 2
+        type: Boolean
+        value: false
+
+    static methods:
+      - action:
+          rename: encode
+        dispid: 3
+        final: true
+        return_type: ByteArray
+        params:
+          - BitmapData
+        maxstack: 6
+        localcount: 8
+        initscopedepth: 3
+        maxscopedepth: 4
+
+      - action:
+          rename: decode
+        dispid: 4
+        final: true
+        return_type: void
+        params:
+          - ByteArray
+          - int
+          - ByteArray
+        maxstack: 4
+        localcount: 11
+        initscopedepth: 3
+        maxscopedepth: 4

@@ -1,0 +1,66 @@
+classes:
+  - action:
+      rename: Base64 # https://github.com/spjwebster/as3base64
+    strict: true
+    static traits:
+      - action:
+          rename: BASE64_CHARS
+        slotid: 1
+        const: true
+        type: String
+        value: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+
+      - slotid: 2
+        name: version
+        const: true
+        type: String
+        value: "1.1.0"
+
+    static methods:
+      - action:
+          rename: decode
+        dispid: 3
+        final: true
+        return_type: String
+        params:
+          - String
+        maxstack: 2
+        localcount: 3
+        initscopedepth: 3
+        maxscopedepth: 4
+
+      - action:
+          rename: encode
+        dispid: 4
+        final: true
+        return_type: String
+        params:
+          - String
+        maxstack: 2
+        localcount: 3
+        initscopedepth: 3
+        maxscopedepth: 4
+
+      - action:
+          rename: decodeToByteArray
+        dispid: 5
+        final: true
+        return_type: ByteArray
+        params:
+          - String
+        maxstack: 6
+        localcount: 8
+        initscopedepth: 3
+        maxscopedepth: 4
+
+      - action:
+          rename: encodeByteArray
+        dispid: 6
+        final: true
+        return_type: String
+        params:
+          - ByteArray
+        maxstack: 6
+        localcount: 8
+        initscopedepth: 3
+        maxscopedepth: 4
