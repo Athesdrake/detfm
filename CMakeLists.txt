@@ -32,3 +32,7 @@ target_link_libraries(detfm PRIVATE fmt::fmt)
 target_link_libraries(detfm PRIVATE yaml-cpp)
 target_link_libraries(detfm PRIVATE swflib::swflib)
 target_link_libraries(detfm PRIVATE Threads::Threads)
+
+if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.4)
+  target_link_libraries(detfm PRIVATE stdc++fs)
+endif()
