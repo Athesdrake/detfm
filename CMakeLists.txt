@@ -24,7 +24,12 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/p-ranav/argparse.git
   GIT_TAG v2.4)
 
-FetchContent_MakeAvailable(argparse)
+FetchContent_GetProperties(argparse)
+if(NOT argparse_POPULATED)
+  FetchContent_Populate(argparse)
+  add_subdirectory(${argparse_SOURCE_DIR} ${argparse_BINARY_DIR}
+                   EXCLUDE_FROM_ALL)
+endif()
 
 # Link dependencies
 target_link_libraries(detfm PRIVATE argparse::argparse)
