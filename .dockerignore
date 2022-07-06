@@ -1,0 +1,5 @@
+*
+!classdef/
+!include/
+!src/
+!CMakeLists.txt
