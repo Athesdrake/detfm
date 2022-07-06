@@ -92,8 +92,14 @@ void detfm::unscramble(abc::Method& method) {
     bool modified        = false;
     int remove_next_call = 0;
 
-    // populate the instruction register (recursive)
-    insreg[ins->addr] = std::make_shared<OpInfo>(ins, insreg);
+    // populate the instruction register
+    auto prev = insreg[ins->addr] = std::make_shared<OpInfo>(ins);
+    while (ins = ins->next) {
+        insreg[ins->addr] = std::make_shared<OpInfo>(ins);
+        prev = prev->next = insreg[ins->addr];
+    }
+
+    ins = parser.begin;
     while (ins) {
         auto opinfo = insreg[ins->addr];
 

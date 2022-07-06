@@ -26,7 +26,7 @@ public:
     std::set<OpInfo*> jumpsHere;
     std::set<std::pair<ErrorField, ErrorInfo*>> errors;
 
-    OpInfo(std::shared_ptr<Instruction> ins, OpRegister& reg);
+    OpInfo(std::shared_ptr<Instruction> ins);
 
     void remove(Parser& parser, OpRegister& reg);
     bool removed();

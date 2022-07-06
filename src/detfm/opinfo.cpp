@@ -2,10 +2,7 @@
 #include <abc/parser/Instruction.hpp>
 #include <abc/parser/Parser.hpp>
 
-OpInfo::OpInfo(std::shared_ptr<Instruction> ins, OpRegister& reg) : ins(ins), addr(ins->addr) {
-    if (ins->next != nullptr)
-        reg[ins->next->addr] = next = std::make_shared<OpInfo>(ins->next, reg);
-}
+OpInfo::OpInfo(std::shared_ptr<Instruction> ins) : ins(ins), addr(ins->addr) { }
 bool OpInfo::removed() { return ins->next == nullptr; }
 void OpInfo::remove(Parser& parser, OpRegister& reg) {
     if (removed())
