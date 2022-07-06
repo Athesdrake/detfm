@@ -4,10 +4,19 @@ ARG VCPKG_TOOLCHAIN="-DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cm
 ARG SWFLIB_STATIC=ON
 ARG BUILD_TYPE=Release
 
+# Build & install mimalloc, since musl's allocator is terrible
+WORKDIR /src
+RUN git clone --depth 1 https://github.com/microsoft/mimalloc && \
+    mkdir mimalloc/build && cd mimalloc/build && \
+    cmake .. -DMI_BUILD_STATIC=OFF -DMI_BUILD_OBJECT=OFF -DMI_BUILD_TESTS=OFF && \
+    cmake --build . && \
+    cmake --install . --strip
+
 WORKDIR /src/detfm
 COPY . .
 
 WORKDIR /build/detfm
+ENV LDFLAGS -Wl,-z,stack-size=8388608
 RUN VCPKG_FORCE_SYSTEM_BINARIES=1 /vcpkg/vcpkg install fmt yaml-cpp && \
     cmake /src/detfm $VCPKG_TOOLCHAIN -DSWFLIB_STATIC=$SWFLIB_STATIC -DCMAKE_BUILD_TYPE=$BUILD_TYPE && \
     cmake --build . && \
@@ -16,6 +25,10 @@ RUN VCPKG_FORCE_SYSTEM_BINARIES=1 /vcpkg/vcpkg install fmt yaml-cpp && \
 FROM athes/unpacker:alpine
 
 WORKDIR /app
+# Get mimalloc from build stage and use it
+COPY --from=build-stage /usr/local/lib/libmimalloc.so /lib/libmimalloc.so
+ENV LD_PRELOAD=/lib/libmimalloc.so
+
 COPY --from=build-stage /usr/local/lib/swflib.so /usr/local/lib/
 COPY --from=build-stage /usr/local/bin/detfm /usr/local/bin/
 COPY classdef ./classdef
