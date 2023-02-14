@@ -21,20 +21,10 @@ if(SWFLIB_STATIC)
   find_package(ZLIB REQUIRED)
   find_package(LibLZMA REQUIRED)
 endif()
+find_package(argparse CONFIG REQUIRED)
+find_package(fmt CONFIG REQUIRED)
+find_package(yaml-cpp CONFIG REQUIRED)
 find_package(swflib CONFIG REQUIRED)
-
-include(FetchContent)
-FetchContent_Declare(
-  argparse
-  GIT_REPOSITORY https://github.com/p-ranav/argparse.git
-  GIT_TAG v2.4)
-
-FetchContent_GetProperties(argparse)
-if(NOT argparse_POPULATED)
-  FetchContent_Populate(argparse)
-  add_subdirectory(${argparse_SOURCE_DIR} ${argparse_BINARY_DIR}
-                   EXCLUDE_FROM_ALL)
-endif()
 
 # Link dependencies
 target_link_libraries(detfm PRIVATE argparse::argparse)
