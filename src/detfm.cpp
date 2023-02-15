@@ -24,7 +24,7 @@ detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt) : abc(abc), fmt(fmt) {
 void detfm::analyze() {
     for (uint32_t i = 0; i < abc->cpool.multinames.size(); ++i) {
         auto& mn = abc->cpool.multinames[i];
-        if (mn.kind == abc::MultinameKind::QName && resolve_multiname(abc, mn) == "ByteArray") {
+        if (mn.kind == abc::MultinameKind::QName && abc::str(abc, mn) == "ByteArray") {
             ByteArray = i;
             break;
         }

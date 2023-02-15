@@ -10,8 +10,8 @@ StaticClass::StaticClass(std::shared_ptr<abc::AbcFile>& abc, abc::Class& klass) 
         if (trait.kind == abc::TraitKind::Slot) {
             slots[trait.name] = &trait;
         } else {
-            auto& method      = abc->methods[trait.index];
-            auto& return_type = resolve_multiname(abc, method.return_type);
+            auto& method     = abc->methods[trait.index];
+            auto return_type = abc::qname(abc, method.return_type);
 
             if (return_type == "int")
                 methods[trait.name] = eval_method<int32_t>(abc, method);
