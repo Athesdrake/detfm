@@ -44,7 +44,9 @@ std::string get_unit(std::list<std::string> const& units, double& value, double 
     return *it;
 }
 std::string fmt_unit(std::list<std::string> const& units, double value, double factor) {
-    auto unit = get_unit(units, value, factor);
-    return fmt::format("{:.2f} {}", value, unit);
+    return fmt::format(
+        "{:.2f} {}",
+        fmt::styled(value, fmt::fg(fmt::color::dark_cyan) | fmt::emphasis::italic),
+        get_unit(units, value, factor));
 }
 }

@@ -17,9 +17,9 @@ template <> struct fmt::formatter<swf::DoABCTag> {
         return format_to(
             ctx.out(),
             "[{tagname}:0x{tagid:02x}] \"{name}\" lazy:{lazy}",
-            "tagname"_a = tag.getTagName(),
-            "tagid"_a   = uint8_t(tag.getId()),
-            "name"_a    = tag.name,
-            "lazy"_a    = tag.is_lazy);
+            "tagname"_a = fmt::styled(tag.getTagName(), fmt::fg(fmt::color::dodger_blue)),
+            "tagid"_a   = fmt::styled(uint8_t(tag.getId()), fmt::fg(fmt::color::purple)),
+            "name"_a    = fmt::styled(tag.name, fmt::fg(fmt::color::olive_drab)),
+            "lazy"_a = fmt::styled(tag.is_lazy, fmt::fg(fmt::color::navy) | fmt::emphasis::italic));
     }
 };
