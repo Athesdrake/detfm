@@ -2,6 +2,7 @@
 #include "detfm/StaticClass.hpp"
 #include "detfm/WrapClass.hpp"
 #include "renamer.hpp"
+#include "utils.hpp"
 #include <abc/parser/Parser.hpp>
 #include <abc/parser/opcodes.hpp>
 #include <cstdint>
@@ -29,7 +30,7 @@ public:
     std::unique_ptr<WrapClass> wrap_class;
     StaticClasses static_classes;
 
-    detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt);
+    detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger);
 
     /* Find classes needed to unscrumble the code */
     void analyze();
@@ -70,6 +71,7 @@ private:
     void set_class_ns(abc::Class& klass, uint32_t& ns);
     uint32_t create_package(std::string name);
 
+    utils::Logger logger;
     Fmt fmt;
     std::shared_ptr<abc::AbcFile> abc;
     std::mutex add_value_mut;

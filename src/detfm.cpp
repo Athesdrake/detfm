@@ -41,7 +41,8 @@ bool skip_to_opcode(std::shared_ptr<Instruction>& ins, OP opcode) {
     return ins != nullptr;
 }
 
-detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt) : abc(abc), fmt(fmt) { }
+detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger)
+    : abc(abc), fmt(fmt), logger(logger) { }
 
 void detfm::analyze() {
     for (uint32_t i = 0; i < abc->cpool.multinames.size(); ++i) {
@@ -367,7 +368,7 @@ void detfm::find_recv_packets() {
                     auto handler = find_class_by_name(ins->args[0]);
 
                     if (handler) {
-                        utils::log_info("Found sub handler ({})\n", handler->get_name());
+                        logger.info("Found sub handler ({})\n", handler->get_name());
                         find_recv_packets(*handler, trait->name, category);
                     }
                 }
@@ -520,11 +521,11 @@ void detfm::find_sent_tribulle(abc::Class& klass) {
     // Skip it if we don't find it, that's not the end of the world
     if (skip_to_opcode(ins, OP::pushstring)) {
         auto version = 'v' + abc->cpool.strings[ins->args[0]];
-        utils::log_info(
+        logger.info(
             "Found Tribulle {}\n",
             fmt::styled(version, fmt::emphasis::italic | fmt::fg(fmt::color::orchid)));
     } else {
-        utils::log_info("Tribulle version not found.\n");
+        logger.warn("Tribulle version not found.\n");
     }
 
     // this class has a method called "getIdPaquet" which takes one param,

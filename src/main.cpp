@@ -33,6 +33,8 @@ using namespace fmt::literals;
 namespace arg = argparse;
 namespace fs  = std::filesystem;
 
+static utils::Logger logger;
+
 template <int slots>
 void check_formats(
     Fmt& fmt, YAML::Node& node,
@@ -43,7 +45,7 @@ void check_formats(
             continue;
 
         if (!child.IsScalar()) {
-            utils::log_error("'formats.{}' must be a string.\n", name);
+            logger.error("'formats.{}' must be a string.\n", name);
             continue;
         }
 
@@ -53,7 +55,7 @@ void check_formats(
 
         auto error = StringFmt<slots>::valid(value);
         if (error) {
-            utils::log_error("'formats.{}' is not a valid format: {}\n", name, *error);
+            logger.error("'formats.{}' is not a valid format: {}\n", name, *error);
         } else {
             fmt.*field = value;
         }
@@ -71,8 +73,7 @@ void parse_format(Fmt& fmt, std::string config_file) {
         return;
 
     if (!node.IsMap())
-        return utils::log_error(
-            "Node 'formats' must be a map {}:{}\n", config_file, node.Mark().line);
+        return logger.error("Node 'formats' must be a map {}:{}\n", config_file, node.Mark().line);
 
     check_formats<1>(
         fmt,
@@ -128,7 +129,7 @@ void unscramble(detfm& detfm, std::shared_ptr<abc::AbcFile>& abc, uint32_t jobs)
     for (uint32_t i = 0; i < length; ++i)
         indexes.push_back(&abc->methods[i]);
 
-    utils::log_info("Spawning {} threads.\n", jobs);
+    logger.info("Spawning {} threads.\n", jobs);
     std::vector<std::thread> threads;
     for (int i = 0; i < jobs; ++i)
         threads.emplace_back(task, std::ref(detfm), std::ref(abc), std::ref(indexes));
@@ -180,12 +181,17 @@ int main(int argc, char const* argv[]) {
     try {
         program.parse_args(argc, argv);
     } catch (const std::runtime_error& err) {
-        utils::log_error("{}\n", err.what());
-        utils::log("{}", program.help().str());
+        logger.error("{}\n", err.what());
+        logger.log("{}", program.help().str());
         return 1;
     }
 
-    utils::log_level       = verbosity;
+    /* verbosity 0  -> warning
+                 1  -> info
+                 2> -> debug
+    */
+    logger.level = utils::LogLevel(std::max(3 - verbosity, 1) * 10);
+
     const auto input       = program.get("input");
     const auto output      = program.get("output");
     const auto config      = program.get("--config");
@@ -199,7 +205,7 @@ int main(int argc, char const* argv[]) {
     Fmt fmt;
     parse_format(fmt, config);
 
-    utils::log_info("Reading file '{}'. ", input);
+    logger.info("Reading file '{}'. ", input);
     try {
         if (input == "-") {
             utils::read_from_stdin(buffer);
@@ -208,28 +214,28 @@ int main(int argc, char const* argv[]) {
             stream = std::unique_ptr<swf::StreamReader>(swf::StreamReader::fromfile(input));
         }
     } catch (const std::runtime_error& err) {
-        utils::log("Error: {}\n", err.what());
+        logger.critical("Error: {}\n", err.what());
         return 2;
     }
 
-    utils::log_done(tps, "Reading file");
-    utils::log_debug(
+    logger.log_done(tps, "Reading file");
+    logger.debug(
         "File size: {}\n",
         utils::fmt_unit({ "B", "kB", "MB", "GB" }, static_cast<double>(stream->size())));
-    utils::log_info("Parsing file. ");
+    logger.info("Parsing file. ");
 
     swf::Swf movie;
     movie.read(*stream);
 
-    utils::log_done(tps, "Parsing file");
+    logger.log_done(tps, "Parsing file");
 
     auto frame1 = movie.abcfiles.find("frame1");
     if (frame1 == movie.abcfiles.end()) {
-        utils::log("Invalid SWF: Frame1 is not available.\n");
+        logger.critical("Invalid SWF: Frame1 is not available.\n");
         return 2;
     } else {
-        utils::log_debug("Found frame1: {}\n", *frame1->second);
-        utils::log_info("Renaming invalid fields. ");
+        logger.debug("Found frame1: {}\n", *frame1->second);
+        logger.info("Renaming invalid fields. ");
     }
 
     auto abc   = frame1->second->abcfile;
@@ -239,28 +245,30 @@ int main(int argc, char const* argv[]) {
         Renamer renamer(abc, fmt);
         renamer.rename();
     } catch (const fmt::format_error& err) {
-        utils::log_error("Invalid format: {}", err.what());
+        logger.error("Invalid format: {}", err.what());
         return 2;
     }
 
-    utils::log_done(tps, "Renaming invalid fields");
-    utils::log_info("Analyzing methods and classes. ");
+    logger.log_done(tps, "Renaming invalid fields");
+    logger.info("Analyzing methods and classes. ");
 
-    detfm detfm(abc, fmt);
+    detfm detfm(abc, fmt, logger);
     detfm.analyze();
 
-    utils::log_done(tps, "Analyzing methods and classes");
-    utils::log_info("Unscrambling methods.\n");
+    logger.log_done(tps, "Analyzing methods and classes");
+    logger.info("Unscrambling methods.\n");
 
     unscramble(detfm, abc, jobs);
 
-    utils::log_done(tps, "Unscrambling methods");
-    utils::log_info("Renaming interesting stuff. ");
+    logger.log_done(tps, "Unscrambling methods");
+    logger.info("Renaming interesting stuff. ");
+    // add a newline when in debug, so logs from rename() are on a new line
+    logger.debug("\n");
 
     detfm.rename();
 
-    utils::log_done(tps, "Renaming interesting stuff");
-    utils::log_info("Matching user-defined classes.\n");
+    logger.log_done(tps, "Renaming interesting stuff");
+    logger.info("Matching user-defined classes.\n");
 
     if (program.present("--classdef")) {
         std::list<std::shared_ptr<match::ClassMatcher>> classes;
@@ -280,13 +288,13 @@ int main(int argc, char const* argv[]) {
                     auto prev = abc->classes[i].get_name();
                     klass->execute_actions();
                     found = true;
-                    utils::log_info("Found class: {} -> {}\n", prev, abc->classes[i].get_name());
+                    logger.info("Found class: {} -> {}\n", prev, abc->classes[i].get_name());
                     break;
                 }
             }
 
             if (!found)
-                utils::log_error("Class not found.\n");
+                logger.error("Class not found.\n");
 
             // some debug shit
             if (!klass->debug.empty()) {
@@ -298,11 +306,11 @@ int main(int argc, char const* argv[]) {
             }
         }
     } else {
-        utils::log_info("Skipping, no path given.\n");
+        logger.info("Skipping, no path given.\n");
     }
 
-    utils::log_done(tps, "Matching user-defined classes");
-    utils::log_info("Writing file. ");
+    logger.log_done(tps, "Matching user-defined classes");
+    logger.info("Writing file. ");
 
     // disable compression by default to speed up the write routine
     movie.signature[0] = static_cast<uint8_t>(
@@ -314,7 +322,7 @@ int main(int argc, char const* argv[]) {
     movie.write(writer);
     if (output == "-") {
         if (std::ferror(std::freopen(nullptr, "wb", stdout))) {
-            utils::log_error(std::strerror(errno));
+            logger.error(std::strerror(errno));
             return 2;
         }
 
@@ -322,24 +330,24 @@ int main(int argc, char const* argv[]) {
     } else {
         writer.tofile(output);
     }
-    utils::log_done(tps, "Writing file");
+    logger.log_done(tps, "Writing file");
 
-    if (verbosity > 1) {
-        utils::log("Timing stats:\n");
+    if (logger.enabled_for(utils::LogLevel::DEBUG)) {
+        logger.debug("Timing stats:\n");
 
         auto it   = tps.begin();
         auto prev = &it->second;
 
         while (++it != tps.end()) {
             auto took = utils::elapsled(*prev, it->second);
-            utils::log(
+            logger.debug(
                 " - {action}: {took}\n",
                 "action"_a = it->first,
                 "took"_a   = utils::fmt_unit({ "µs", "ms", "s" }, took, 1000));
             prev = &it->second;
         }
         auto total = utils::elapsled(tps.front().second, tps.back().second);
-        utils::log("Total: {}\n", utils::fmt_unit({ "µs", "ms", "s" }, total, 1000));
+        logger.debug("Total: {}\n", utils::fmt_unit({ "µs", "ms", "s" }, total, 1000));
     }
     return 0;
 }
