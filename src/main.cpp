@@ -86,15 +86,17 @@ void parse_format(Fmt& fmt, std::string config_file) {
             { "vars", &Fmt::vars },
             { "methods", &Fmt::methods },
             { "errors", &Fmt::errors },
-            { "unknown_recv_packet", &Fmt::unknown_recv_packet },
             { "packet_subhandler", &Fmt::packet_subhandler },
+            { "unknown_clientbound_packet", &Fmt::unknown_clientbound_packet },
+            { "tribulle_clientbound_packet", &Fmt::tribulle_clientbound_packet },
+            { "tribulle_serverbound_packet", &Fmt::tribulle_serverbound_packet },
         });
     check_formats<2>(
         fmt,
         node,
         {
-            { "recv_packet", &Fmt::recv_packet },
-            { "sent_packet", &Fmt::sent_packet },
+            { "clientbound_packet", &Fmt::clientbound_packet },
+            { "serverbound_packet", &Fmt::serverbound_packet },
         });
 }
 

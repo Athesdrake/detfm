@@ -23,10 +23,10 @@ class detfm {
     using MethodIterator = std::vector<abc::Method>::iterator;
 
 public:
-    uint32_t ByteArray   = 0;
-    abc::Class* sent_pkt = nullptr;
-    abc::Class* recv_pkt = nullptr;
-    abc::Class* pkt_hdlr = nullptr;
+    uint32_t ByteArray    = 0;
+    abc::Class* base_spkt = nullptr; // Base serverbound packet
+    abc::Class* base_cpkt = nullptr; // Base clientbound packet
+    abc::Class* pkt_hdlr  = nullptr;
     std::unique_ptr<WrapClass> wrap_class;
     StaticClasses static_classes;
 
@@ -42,8 +42,8 @@ public:
     void rename();
 
 private:
-    bool match_sent_pkt(abc::Class& klass);
-    bool match_recv_pkt(abc::Class& klass);
+    bool match_serverbound_pkt(abc::Class& klass);
+    bool match_clientbound_pkt(abc::Class& klass);
     bool match_wrap_class(abc::Class& klass);
     bool match_slot_class(abc::Class& klass);
     bool match_packet_handler(abc::Class& klass);
@@ -52,11 +52,11 @@ private:
     /* Rename any method that is an equivalent to write*() */
     void rename_writeany();
 
-    void find_recv_packets();
-    void find_recv_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& category);
+    void find_clientbound_packets();
+    void find_clientbound_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& category);
 
-    bool find_recv_tribulle(std::shared_ptr<Instruction> ins);
-    void find_sent_tribulle(abc::Class& klass);
+    bool find_clientbound_tribulle(std::shared_ptr<Instruction> ins);
+    void find_serverbound_tribulle(abc::Class& klass);
 
     std::optional<abc::Class> find_class_by_name(uint32_t& name);
     std::optional<abc::Trait>
@@ -77,12 +77,12 @@ private:
     std::mutex add_value_mut;
     struct {
         uint32_t pkt; // packets
-        uint32_t spkt; // packets.sent
-        uint32_t rpkt; // packets.recv
+        uint32_t spkt; // packets.serverbound
+        uint32_t cpkt; // packets.clientbound
 
         uint32_t tpkt; // packets.tribulle
-        uint32_t tspkt; // packets.tribulle.sent
-        uint32_t trpkt; // packets.tribulle.recv
+        uint32_t tspkt; // packets.tribulle.serverbound
+        uint32_t tcpkt; // packets.tribulle.clientbound
 
         uint32_t slot;
     } ns;

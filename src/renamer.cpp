@@ -41,10 +41,10 @@ void Fmt::check_formats() const {
         { "vars", &vars },
         { "methods", &methods },
         { "errors", &errors },
-        { "unknown_recv_packet", &unknown_recv_packet },
+        { "unknown_clientbound_packet", &unknown_clientbound_packet },
         { "packet_subhandler", &packet_subhandler },
-        { "recv_packet", &recv_packet },
-        { "sent_packet", &sent_packet },
+        { "clientbound_packet", &clientbound_packet },
+        { "serverbound_packet", &serverbound_packet },
     };
     for (const auto& [name, fmt] : formats) {
         auto error = fmt->valid();

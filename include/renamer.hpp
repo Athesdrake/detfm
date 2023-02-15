@@ -45,14 +45,13 @@ public:
     StringFmt<1> methods   = "method_{:03d}";
     StringFmt<1> errors    = "error{:d}";
 
-    StringFmt<1> unknown_recv_packet = "RPacket_u{:02d}";
-    StringFmt<1> packet_subhandler   = "PacketSubHandler_{:02x}";
+    StringFmt<1> packet_subhandler  = "PacketSubHandler_{:02x}";
+    StringFmt<2> clientbound_packet = "CPacket_{:02x}_{:02x}";
+    StringFmt<2> serverbound_packet = "SPacket_{:02x}_{:02x}";
 
-    StringFmt<2> recv_packet = "RPacket_{:02x}_{:02x}";
-    StringFmt<2> sent_packet = "SPacket_{:02x}_{:02x}";
-
-    StringFmt<1> tribulle_recv_packet = "TRPacket_{:04x}";
-    StringFmt<1> tribulle_sent_packet = "TSPacket_{:04x}";
+    StringFmt<1> unknown_clientbound_packet  = "CPacket_u{:02d}";
+    StringFmt<1> tribulle_clientbound_packet = "TCPacket_{:04x}";
+    StringFmt<1> tribulle_serverbound_packet = "TSPacket_{:04x}";
 
     Fmt();
 

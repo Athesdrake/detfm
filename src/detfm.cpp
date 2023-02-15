@@ -54,10 +54,10 @@ void detfm::analyze() {
     }
 
     for (auto& klass : abc->classes) {
-        if (match_sent_pkt(klass)) {
-            sent_pkt = &klass;
-        } else if (match_recv_pkt(klass)) {
-            recv_pkt = &klass;
+        if (match_serverbound_pkt(klass)) {
+            base_spkt = &klass;
+        } else if (match_clientbound_pkt(klass)) {
+            base_cpkt = &klass;
         } else if (match_wrap_class(klass)) {
             wrap_class = std::make_unique<WrapClass>(klass);
         } else if (match_slot_class(klass)) {
@@ -71,10 +71,10 @@ void detfm::analyze() {
     if (ByteArray == 0)
         missings.push_back("ByteArray Multiname");
 
-    if (sent_pkt == nullptr)
+    if (base_spkt == nullptr)
         missings.push_back("Send Base Packet");
 
-    if (recv_pkt == nullptr)
+    if (base_cpkt == nullptr)
         missings.push_back("Receive Base Packet");
 
     if (wrap_class == nullptr)
@@ -245,27 +245,27 @@ void detfm::unscramble(abc::Method& method) {
 void detfm::rename() {
     ns.slot  = create_package("com.obfuscate");
     ns.pkt   = create_package("packets");
-    ns.spkt  = create_package("packets.sent");
-    ns.rpkt  = create_package("packets.recv");
+    ns.spkt  = create_package("packets.serverbound");
+    ns.cpkt  = create_package("packets.clientbound");
     ns.tpkt  = create_package("packets.tribulle");
-    ns.tspkt = create_package("packets.tribulle.sent");
-    ns.trpkt = create_package("packets.tribulle.recv");
+    ns.tspkt = create_package("packets.tribulle.serverbound");
+    ns.tcpkt = create_package("packets.tribulle.clientbound");
 
-    set_class_ns(*sent_pkt, ns.pkt);
-    set_class_ns(*recv_pkt, ns.pkt);
+    set_class_ns(*base_spkt, ns.pkt);
+    set_class_ns(*base_cpkt, ns.pkt);
 
-    sent_pkt->rename("SPacketBase");
-    sent_pkt->itraits[2].rename("pcode");
+    base_spkt->rename("SPacketBase");
+    base_spkt->itraits[2].rename("pcode");
     rename_writeany();
 
-    recv_pkt->rename("RPacketBase");
-    recv_pkt->itraits[0].rename("pcode0");
-    recv_pkt->itraits[1].rename("pcode1");
-    recv_pkt->itraits[2].rename("buffer");
+    base_cpkt->rename("RPacketBase");
+    base_cpkt->itraits[0].rename("pcode0");
+    base_cpkt->itraits[1].rename("pcode1");
+    base_cpkt->itraits[2].rename("buffer");
 
-    auto spkt_name    = sent_pkt->get_name();
-    auto rpkt_name    = recv_pkt->get_name();
-    auto recv_counter = 0;
+    auto spkt_name    = base_spkt->get_name();
+    auto rpkt_name    = base_cpkt->get_name();
+    auto clientbound_counter = 0;
     for (auto& klass : abc->classes) {
         if (klass.super_name == 0)
             continue;
@@ -283,12 +283,12 @@ void detfm::rename() {
 
                 ins = ins->next;
             }
-            klass.rename(fmt.sent_packet.format(pcode >> 8, pcode & 0xff));
+            klass.rename(fmt.serverbound_packet.format(pcode >> 8, pcode & 0xff));
 
             set_class_ns(klass, ns.spkt);
         } else if (super_name == rpkt_name) {
-            klass.rename(fmt.unknown_recv_packet.format(++recv_counter));
-            set_class_ns(klass, ns.rpkt);
+            klass.rename(fmt.unknown_clientbound_packet.format(++clientbound_counter));
+            set_class_ns(klass, ns.cpkt);
         }
     }
 
@@ -307,10 +307,10 @@ void detfm::rename() {
     klass.rename("$WrapperClass");
     set_class_ns(klass, ns.slot);
 
-    find_recv_packets();
+    find_clientbound_packets();
 }
 
-void detfm::find_recv_packets() {
+void detfm::find_clientbound_packets() {
     const auto predicate = [this](auto& t) { return match_packet_handler(t); };
     const auto trait = std::find_if(pkt_hdlr->ctraits.begin(), pkt_hdlr->ctraits.end(), predicate);
     auto& method     = abc->methods[trait->index];
@@ -337,7 +337,7 @@ void detfm::find_recv_packets() {
 
                     // Handle the tribulle packets
                     if (category == 0x3c && code == 0x03) {
-                        found = find_recv_tribulle(ins);
+                        found = find_clientbound_tribulle(ins);
                         break;
                     }
 
@@ -346,8 +346,8 @@ void detfm::find_recv_packets() {
                             auto klass = find_class_by_name(ins->args[0]);
 
                             if (klass) {
-                                klass->rename(fmt.recv_packet.format(category, code));
-                                set_class_ns(*klass, ns.rpkt);
+                                klass->rename(fmt.clientbound_packet.format(category, code));
+                                set_class_ns(*klass, ns.cpkt);
                             }
                             break;
                         }
@@ -369,7 +369,7 @@ void detfm::find_recv_packets() {
 
                     if (handler) {
                         logger.info("Found sub handler ({})\n", handler->get_name());
-                        find_recv_packets(*handler, trait->name, category);
+                        find_clientbound_packets(*handler, trait->name, category);
                     }
                 }
                 ins = target->prev.lock();
@@ -378,7 +378,7 @@ void detfm::find_recv_packets() {
         ins = ins->next;
     }
 }
-void detfm::find_recv_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& category) {
+void detfm::find_clientbound_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& category) {
     auto trait   = find_ctrait_by_name(klass, trait_name);
     auto& method = abc->methods[trait->index];
     uint8_t code = 0;
@@ -401,8 +401,8 @@ void detfm::find_recv_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& 
                         if (is_sequence(ins, new_class_seq)) {
                             auto klass = find_class_by_name(ins->args[0]);
                             if (klass) {
-                                klass->rename(fmt.recv_packet.format(category, code));
-                                set_class_ns(*klass, ns.rpkt);
+                                klass->rename(fmt.clientbound_packet.format(category, code));
+                                set_class_ns(*klass, ns.cpkt);
                             }
                             break;
                         }
@@ -420,7 +420,7 @@ void detfm::find_recv_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& 
     }
 }
 
-bool detfm::find_recv_tribulle(std::shared_ptr<Instruction> ins) {
+bool detfm::find_clientbound_tribulle(std::shared_ptr<Instruction> ins) {
     std::optional<abc::Class> klass;
 
     while (ins && ins->opcode != OP::returnvoid && !is_sequence(ins, tribulle_pkt_getter_seq))
@@ -474,7 +474,7 @@ bool detfm::find_recv_tribulle(std::shared_ptr<Instruction> ins) {
         return false;
 
     // The same class has several interesting stuff
-    find_sent_tribulle(*klass);
+    find_serverbound_tribulle(*klass);
 
     // found the magic method, we need to do the get_packet_code thing again!
     // but first let's rename the base packet
@@ -506,14 +506,14 @@ bool detfm::find_recv_tribulle(std::shared_ptr<Instruction> ins) {
             continue; // should we return false?
 
         // rename it!
-        set_class_ns(*klass, ns.trpkt);
-        klass->rename(fmt.tribulle_recv_packet.format(code));
+        set_class_ns(*klass, ns.tcpkt);
+        klass->rename(fmt.tribulle_clientbound_packet.format(code));
     } while (ins = ins->next);
 
     return true;
 }
 
-void detfm::find_sent_tribulle(abc::Class& klass) {
+void detfm::find_serverbound_tribulle(abc::Class& klass) {
     // First we can get the Tribulle aka Community Platform version
     Parser parser(abc->methods[klass.iinit]);
     auto ins = parser.begin;
@@ -592,7 +592,7 @@ void detfm::find_sent_tribulle(abc::Class& klass) {
             continue;
 
         set_class_ns(*cls, ns.tspkt);
-        cls->rename(fmt.tribulle_sent_packet.format(addr2id[addr]));
+        cls->rename(fmt.tribulle_serverbound_packet.format(addr2id[addr]));
     }
 }
 
@@ -687,8 +687,8 @@ bool detfm::is_sequence(std::shared_ptr<Instruction> ins, const std::vector<OP>&
     return true;
 }
 
-bool detfm::match_sent_pkt(abc::Class& klass) {
-    if (sent_pkt != nullptr)
+bool detfm::match_serverbound_pkt(abc::Class& klass) {
+    if (base_spkt != nullptr)
         return false;
 
     if (!klass.isSealed() || !klass.isProtected())
@@ -699,8 +699,8 @@ bool detfm::match_sent_pkt(abc::Class& klass) {
 
     return klass.itraits[0].slot.type == ByteArray;
 }
-bool detfm::match_recv_pkt(abc::Class& klass) {
-    if (recv_pkt != nullptr)
+bool detfm::match_clientbound_pkt(abc::Class& klass) {
+    if (base_cpkt != nullptr)
         return false;
 
     auto isize = klass.itraits.size();
@@ -768,12 +768,12 @@ bool detfm::match_packet_handler(abc::Trait& trait) {
 }
 
 void detfm::rename_writeany() {
-    for (auto& trait : sent_pkt->itraits) {
+    for (auto& trait : base_spkt->itraits) {
         if (trait.kind == swf::abc::TraitKind::Method) {
             auto& method = abc->methods[trait.index];
             if (method.max_stack == method.local_count && method.max_stack <= 2
                 && method.init_scope_depth == method.max_scope_depth - 1
-                && method.return_type == sent_pkt->name) {
+                && method.return_type == base_spkt->name) {
                 Parser parser(method);
                 std::set<OP> allowed = {
                     OP::getlocal0,
@@ -787,7 +787,7 @@ void detfm::rename_writeany() {
                 while (ins) {
                     if (ins->opcode == OP::getproperty) {
                         // Make sure we get the buffer
-                        if (ins->args[0] != sent_pkt->itraits[0].name)
+                        if (ins->args[0] != base_spkt->itraits[0].name)
                             break;
 
                     } else if (ins->opcode == OP::callpropvoid) {
