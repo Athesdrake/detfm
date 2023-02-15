@@ -54,7 +54,15 @@ private:
     void find_recv_packets();
     void find_recv_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& category);
 
+    bool find_recv_tribulle(std::shared_ptr<Instruction> ins);
+    void find_sent_tribulle(abc::Class& klass);
+
     std::optional<abc::Class> find_class_by_name(uint32_t& name);
+    std::optional<abc::Trait>
+    find_ctrait_by_name(abc::Class& klass, uint32_t& name, bool check_super = true);
+    std::optional<abc::Trait>
+    find_itrait_by_name(abc::Class& klass, uint32_t& name, bool check_super = true);
+    std::optional<abc::Trait> find_trait(abc::Class& klass, uint32_t& name);
 
     bool get_packet_code(std::shared_ptr<Instruction>& ins, uint8_t& code);
     bool is_sequence(std::shared_ptr<Instruction> ins, const std::vector<OP>& ops);
@@ -66,9 +74,14 @@ private:
     std::shared_ptr<abc::AbcFile> abc;
     std::mutex add_value_mut;
     struct {
-        uint32_t pkt;
-        uint32_t spkt;
-        uint32_t rpkt;
+        uint32_t pkt; // packets
+        uint32_t spkt; // packets.sent
+        uint32_t rpkt; // packets.recv
+
+        uint32_t tpkt; // packets.tribulle
+        uint32_t tspkt; // packets.tribulle.sent
+        uint32_t trpkt; // packets.tribulle.recv
+
         uint32_t slot;
     } ns;
 };

@@ -51,6 +51,9 @@ public:
     StringFmt<2> recv_packet = "RPacket_{:02x}_{:02x}";
     StringFmt<2> sent_packet = "SPacket_{:02x}_{:02x}";
 
+    StringFmt<1> tribulle_recv_packet = "TRPacket_{:04x}";
+    StringFmt<1> tribulle_sent_packet = "TSPacket_{:04x}";
+
     Fmt();
 
     // throw an error if any format is invalid

@@ -18,6 +18,28 @@ static const std::vector<OP> new_class_seq = {
 static const std::vector<OP> sub_handler_seq = {
     OP::getlex, OP::getlocal1, OP::getlex, OP::getproperty, OP::callpropvoid, OP::returnvoid,
 };
+static const std::vector<OP> tribulle_pkt_getter_seq = {
+    OP::getlex, OP::getlex, OP::getproperty, OP::callproperty, OP::coerce,
+};
+static const std::vector<OP> tribulle_pkt_return_id_seq = {
+    OP::label,
+    OP::pushdouble,
+    OP::returnvalue,
+};
+
+bool is_qname(abc::Multiname& mn) {
+    return mn.kind == abc::MultinameKind::QName || mn.kind == abc::MultinameKind::QNameA;
+}
+
+/** @brief Skip instructions until the specified opcode is reached.
+ *  @return true upon success, false if it reached end of code.
+ */
+bool skip_to_opcode(std::shared_ptr<Instruction>& ins, OP opcode) {
+    while (ins && ins->opcode != opcode)
+        ins = ins->next;
+
+    return ins != nullptr;
+}
 
 detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt) : abc(abc), fmt(fmt) { }
 
@@ -220,10 +242,13 @@ void detfm::unscramble(abc::Method& method) {
 }
 
 void detfm::rename() {
-    ns.slot = create_package("com.obfuscate");
-    ns.pkt  = create_package("packets");
-    ns.spkt = create_package("packets.sent");
-    ns.rpkt = create_package("packets.recv");
+    ns.slot  = create_package("com.obfuscate");
+    ns.pkt   = create_package("packets");
+    ns.spkt  = create_package("packets.sent");
+    ns.rpkt  = create_package("packets.recv");
+    ns.tpkt  = create_package("packets.tribulle");
+    ns.tspkt = create_package("packets.tribulle.sent");
+    ns.trpkt = create_package("packets.tribulle.recv");
 
     set_class_ns(*sent_pkt, ns.pkt);
     set_class_ns(*recv_pkt, ns.pkt);
@@ -309,6 +334,12 @@ void detfm::find_recv_packets() {
                 while (get_packet_code(ins, code)) {
                     auto codetarget = ins->targets[0].lock();
 
+                    // Handle the tribulle packets
+                    if (category == 0x3c && code == 0x03) {
+                        found = find_recv_tribulle(ins);
+                        break;
+                    }
+
                     while (ins && ins->opcode != OP::returnvoid) {
                         if (is_sequence(ins, new_class_seq)) {
                             auto klass = find_class_by_name(ins->args[0]);
@@ -333,13 +364,9 @@ void detfm::find_recv_packets() {
 
                 if (!found && is_sequence(ins, sub_handler_seq)
                     && ins->next->next->args[0] == pkt_hdlr->name) {
-                    auto name    = ins->args[0];
-                    auto handler = std::find_if(
-                        abc->classes.begin(), abc->classes.end(), [&](abc::Class& cls) {
-                            return cls.name == name;
-                        });
+                    auto handler = find_class_by_name(ins->args[0]);
 
-                    if (handler != abc->classes.end()) {
+                    if (handler) {
                         utils::log_info("Found sub handler ({})\n", handler->get_name());
                         find_recv_packets(*handler, trait->name, category);
                     }
@@ -351,9 +378,7 @@ void detfm::find_recv_packets() {
     }
 }
 void detfm::find_recv_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& category) {
-    auto trait   = std::find_if(klass.ctraits.begin(), klass.ctraits.end(), [trait_name](auto& t) {
-        return t.name == trait_name;
-    });
+    auto trait   = find_ctrait_by_name(klass, trait_name);
     auto& method = abc->methods[trait->index];
     uint8_t code = 0;
     klass.rename(fmt.packet_subhandler.format(category));
@@ -394,14 +419,236 @@ void detfm::find_recv_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& 
     }
 }
 
+bool detfm::find_recv_tribulle(std::shared_ptr<Instruction> ins) {
+    std::optional<abc::Class> klass;
+
+    while (ins && ins->opcode != OP::returnvoid && !is_sequence(ins, tribulle_pkt_getter_seq))
+        ins = ins->next;
+
+    // Safety check
+    if (ins->opcode == OP::returnvoid || !(klass = find_class_by_name(ins->args[0])))
+        return false;
+
+    auto callprop = ins->next->next->next;
+    auto trait    = find_ctrait_by_name(*klass, callprop->args[0]);
+
+    // Make sure we have a method!
+    if (!trait || trait->kind != abc::TraitKind::Method)
+        return false;
+
+    // This method calls another one, which contains the code we want
+    Parser parser(abc->methods[trait->index]);
+    ins = parser.begin;
+
+    // First we have a getlex
+    if (!skip_to_opcode(ins, OP::getlex) || !(klass = find_class_by_name(ins->args[0])))
+        return false;
+
+    ins = ins->next;
+    // then we should have 2 getproperty
+    while (ins && ins->opcode == OP::getproperty) {
+        auto name = abc::str(abc, ins->args[0]);
+        // Make sure we get a slot trait with a specified type
+        if (!(trait = find_trait(*klass, ins->args[0])) || trait->kind != abc::TraitKind::Slot
+            || trait->slot.type == 0)
+            return false;
+
+        // Get the trait's type, so we can resolve later traits
+        if (!(klass = find_class_by_name(trait->slot.type)))
+            return false;
+
+        ins = ins->next;
+    }
+
+    // followed by some args and a callproperty
+    if (!skip_to_opcode(ins, OP::callproperty))
+        return false;
+
+    // Get the class & method
+    auto name = ins->args[0];
+    while (klass && !(trait = find_itrait_by_name(*klass, name, false)) && klass->super_name)
+        klass = find_class_by_name(klass->super_name);
+
+    if (!klass || !trait || trait->kind != abc::TraitKind::Method)
+        return false;
+
+    // The same class has several interesting stuff
+    find_sent_tribulle(*klass);
+
+    // found the magic method, we need to do the get_packet_code thing again!
+    // but first let's rename the base packet
+    auto& method = abc->methods[trait->index];
+    if (klass = find_class_by_name(method.return_type)) {
+        set_class_ns(*klass, ns.tpkt);
+        klass->rename("TRPacketBase");
+    }
+
+    parser = Parser(method);
+    ins    = parser.begin;
+    if (!ins)
+        return false;
+
+    // similar to get_packet_code, but much simpler
+    // it's always `local2 == <pushdouble>` (or inversed)
+    // so we only need to find the pushdouble
+    uint16_t code;
+    do {
+        if (ins->opcode != OP::pushdouble)
+            continue;
+
+        code = abc->cpool.doubles[ins->args[0]];
+        // find the next findpropstrict, that's the class we need to rename!
+        while (ins && ins->opcode != OP::findpropstrict)
+            ins = ins->next;
+
+        if (!ins || !(klass = find_class_by_name(ins->args[0])))
+            continue; // should we return false?
+
+        // rename it!
+        set_class_ns(*klass, ns.trpkt);
+        klass->rename(fmt.tribulle_recv_packet.format(code));
+    } while (ins = ins->next);
+
+    return true;
+}
+
+void detfm::find_sent_tribulle(abc::Class& klass) {
+    // First we can get the Tribulle aka Community Platform version
+    Parser parser(abc->methods[klass.iinit]);
+    auto ins = parser.begin;
+
+    // Skip it if we don't find it, that's not the end of the world
+    if (skip_to_opcode(ins, OP::pushstring)) {
+        auto version = 'v' + abc->cpool.strings[ins->args[0]];
+        utils::log_info(
+            "Found Tribulle {}\n",
+            fmt::styled(version, fmt::emphasis::italic | fmt::fg(fmt::color::orchid)));
+    } else {
+        utils::log_info("Tribulle version not found.\n");
+    }
+
+    // this class has a method called "getIdPaquet" which takes one param,
+    // and return its corresponding id. The function check the param's type using `istypelate`
+    // So we can get the class from its id and rename it.
+    std::optional<abc::Method> method;
+
+    // don't search the trait from its name
+    for (auto& trait : klass.itraits) {
+        if (trait.kind != abc::TraitKind::Method)
+            continue;
+
+        auto& meth = abc->methods[trait.index];
+        if (meth.params.size() != 1 || abc::qname(abc, meth.return_type) != "int")
+            continue;
+
+        method = meth;
+        trait.rename("getPacketId");
+        break;
+    }
+
+    if (!method)
+        return;
+
+    parser = Parser(*method);
+    ins    = parser.begin;
+
+    std::unordered_map<uint32_t, uint16_t> addr2id;
+    std::unordered_map<uint32_t, uint32_t> index2name;
+    while (ins && !is_sequence(ins, tribulle_pkt_return_id_seq))
+        ins = ins->next;
+
+    while (ins && is_sequence(ins, tribulle_pkt_return_id_seq)) {
+        addr2id[ins->addr] = static_cast<uint16_t>(abc->cpool.doubles[ins->next->args[0]]);
+        // Skip the sequence 💩
+        ins = ins->next->next->next;
+    }
+
+    // find the getlex's and the index used in the lookupswitch
+    while (ins) {
+        uint32_t name;
+        if (skip_to_opcode(ins, OP::getlex))
+            name = ins->args[0];
+
+        if (skip_to_opcode(ins, OP::pushbyte)) {
+            index2name[ins->args[0]] = name;
+
+            if (!is_sequence(ins->next, { OP::jump, OP::getlocal1 }))
+                break;
+        }
+    }
+
+    if (!skip_to_opcode(ins, OP::lookupswitch))
+        return;
+
+    const auto targets_count = ins->targets.size();
+    std::optional<abc::Class> cls;
+    for (auto it : index2name) {
+        if (!(cls = find_class_by_name(it.second)) || it.first >= targets_count)
+            continue;
+
+        auto addr = ins->targets[it.first + 1].lock()->addr;
+        if (addr2id.find(addr) == addr2id.end())
+            continue;
+
+        set_class_ns(*cls, ns.tspkt);
+        cls->rename(fmt.tribulle_sent_packet.format(addr2id[addr]));
+    }
+}
+
 std::optional<abc::Class> detfm::find_class_by_name(uint32_t& name) {
     auto klass = std::find_if(abc->classes.begin(), abc->classes.end(), [name](abc::Class& cls) {
         return cls.name == name;
     });
 
-    if (klass == abc->classes.end())
+    if (klass != abc->classes.end())
+        return *klass;
+
+    return {};
+}
+std::optional<abc::Trait>
+detfm::find_ctrait_by_name(abc::Class& klass, uint32_t& name, bool check_super) {
+    auto trait = std::find_if(klass.ctraits.begin(), klass.ctraits.end(), [name](abc::Trait& t) {
+        return t.name == name;
+    });
+
+    if (trait != klass.ctraits.end())
+        return *trait;
+
+    if (!check_super || klass.super_name == 0)
         return {};
-    return *klass;
+
+    // Check the prototype chain
+    // TODO: unroll it to prevent any recursive issue?
+    std::optional<abc::Class> super;
+    if (super = find_class_by_name(klass.super_name))
+        return find_ctrait_by_name(*super, name);
+
+    return {};
+}
+std::optional<abc::Trait>
+detfm::find_itrait_by_name(abc::Class& klass, uint32_t& name, bool check_super) {
+    auto& mn = abc->cpool.multinames[name];
+    for (auto& trait : klass.itraits)
+        if (trait.name == name)
+            return trait;
+
+    if (!check_super || klass.super_name == 0)
+        return {};
+
+    // Check the prototype chain
+    // TODO: unroll it to prevent any recursive issue?
+    std::optional<abc::Class> super;
+    if (super = find_class_by_name(klass.super_name))
+        return find_itrait_by_name(*super, name);
+
+    return {};
+}
+std::optional<abc::Trait> detfm::find_trait(abc::Class& klass, uint32_t& name) {
+    auto trait = find_ctrait_by_name(klass, name, false);
+    if (!trait)
+        trait = find_itrait_by_name(klass, name, false);
+
+    return trait;
 }
 
 bool detfm::get_packet_code(std::shared_ptr<Instruction>& ins, uint8_t& code) {
@@ -566,6 +813,9 @@ void detfm::rename_writeany() {
 }
 
 void detfm::set_class_ns(abc::Class& klass, uint32_t& ns) {
+    if (ns == 0)
+        throw std::runtime_error("Cannot rename class' namespace to null.");
+
     auto& mn = abc->cpool.multinames[klass.name];
     switch (mn.kind) {
     case abc::MultinameKind::QName:
