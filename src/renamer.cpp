@@ -5,8 +5,8 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include <iterator>
-#include <list>
 #include <stdexcept>
+#include <unordered_map>
 #include <vector>
 
 using namespace fmt::literals;
@@ -21,19 +21,8 @@ std::optional<std::string> check_format(std::string const& format, fmt::format_a
     return std::nullopt;
 }
 
-std::string StringFmt<1>::format(int a) { return fmt::format(value, a); }
-std::string StringFmt<2>::format(int a, int b) { return fmt::format(value, a, b); }
-std::optional<std::string> StringFmt<1>::valid(std::string const& format) {
-    return check_format(format, fmt::make_format_args(0));
-}
-std::optional<std::string> StringFmt<2>::valid(std::string const& format) {
-    return check_format(format, fmt::make_format_args(0, 0));
-}
-
-Fmt::Fmt() { }
-
-void Fmt::check_formats() const {
-    std::list<std::pair<std::string, const StringFmtBase*>> formats = {
+Fmt::Fmt() {
+    std::unordered_map<std::string, const StringFmtBase*> formats = {
         { "classes", &classes },
         { "consts", &consts },
         { "functions", &functions },
@@ -58,9 +47,65 @@ void Fmt::check_formats() const {
     }
 }
 
-Renamer::Renamer(std::shared_ptr<abc::AbcFile> const& abc, Fmt const& fmt) : abc(abc), fmt(fmt) {
-    fmt.check_formats();
+void Fmt::from_json(json& config, utils::Logger& logger) {
+    if (!config.is_object() || !config.contains("formats"))
+        return;
+
+    for (auto& [name, field] : get_fields()) {
+        json::json_pointer ptr(name);
+        if (!config.contains(ptr))
+            continue;
+
+        auto& child = config[ptr];
+        if (!child.is_string()) {
+            std::replace(name.begin(), name.end(), '/', '.');
+            logger.error("'{}' must be a string.\n", name.substr(1));
+            continue;
+        }
+
+        auto value = child.get<std::string>();
+        if (value.empty())
+            continue;
+
+        auto error = field->valid(value);
+        if (error) {
+            std::replace(name.begin(), name.end(), '/', '.');
+            logger.error("'{}' is not a valid format: {}\n", name.substr(1), *error);
+        } else {
+            field->value = value;
+        }
+    }
 }
+
+json Fmt::to_json() {
+    Fmt fmt;
+    json config;
+
+    for (auto& [name, field] : fmt.get_fields())
+        config[name] = field->value;
+
+    return config.unflatten();
+}
+
+Fmt::Fields Fmt::get_fields() {
+    return {
+        { "/formats/typenames/classes", &classes },
+        { "/formats/typenames/consts", &consts },
+        { "/formats/typenames/functions", &functions },
+        { "/formats/typenames/names", &names },
+        { "/formats/typenames/vars", &vars },
+        { "/formats/typenames/methods", &methods },
+        { "/formats/typenames/errors", &errors },
+        { "/formats/packets/packet_subhandler", &packet_subhandler },
+        { "/formats/packets/unknown_clientbound_packet", &unknown_clientbound_packet },
+        { "/formats/packets/clientbound", &clientbound_packet },
+        { "/formats/packets/serverbound", &serverbound_packet },
+        { "/formats/packets/tribulle/clientbound", &tribulle_clientbound_packet },
+        { "/formats/packets/tribulle/serverbound", &tribulle_serverbound_packet },
+    };
+}
+
+Renamer::Renamer(std::shared_ptr<abc::AbcFile> const& abc, Fmt const& fmt) : abc(abc), fmt(fmt) { }
 
 bool Renamer::invalid(std::string const& name) { return invalid(std::string_view(name)); }
 bool Renamer::invalid(std::string_view name) {

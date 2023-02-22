@@ -19,26 +19,31 @@ Using stdout as the output:
 detfm Transformice.swf -
 ```
 
+This tool rename variables/classes/... to make it readable a a human being.
+Most names are dynamics and can be configured using a config file with `--config <file>` (or `-c` ).
+You can dump the default config using `--dump-config <file>` to the specified file.
+
 By default, this utility uses multiple threads in order to speed up the process. You can specify the number of threads to use using the `-j` or `--jobs` argument.
 A value of 0 will use the appropriate number of threads available and a value of 1 will disable the multithreading and use a sequencial approach instead.
 
-## User-defined class definitions
+## User-defined class definitions (DEPRECATED)
 You can define your own rules that matches a certain class using YAML files. You can find examples in the folder [`classdef`](./classdef/).
-To enable this feature, you need to provide the tool the path to these files using the option `--clasdef`.
+To enable this feature, you need to provide the tool the path to these files using the option `--classdef`.
 ```sh
 detfm --classdef ./classdef Transformice.swf Transformice-clean.swf
 ```
-Note that this feature is experimental and might break in the future.
+However, this is deprecated, and will be replaced in the future.
 
 ## Building from source
 Few libraries are needed in order to this project to compile.
  - [argparse](https://github.com/p-ranav/argparse)
+ - [cmakerc](https://github.com/vector-of-bool/cmrc)
  - [fmt](https://github.com/fmtlib/fmt)
+ - [nlohmann-json](https://github.com/nlohmann/json)
  - [yaml-cpp](https://github.com/jbeder/yaml-cpp)
  - [swflib](https://github.com/Athesdrake/swflib)
 
-You can install most `fmt` and `yaml-cpp` using [`vcpkg`](https://vcpkg.io/en/index.html).
-`argparse` is downloaded using CMake's `FetchContent` utility.
+It will be install automatically using [`vcpkg`](https://vcpkg.io/en/index.html)
 
 As for `swflib`, you'll need to get it from [here](https://github.com/Athesdrake/swflib).
 

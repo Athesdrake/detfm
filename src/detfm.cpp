@@ -43,7 +43,18 @@ bool skip_to_opcode(std::shared_ptr<Instruction>& ins, OP opcode) {
 }
 
 detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger)
-    : abc(abc), fmt(fmt), logger(logger) { }
+    : abc(abc), fmt(fmt), logger(logger) {
+    std::unordered_map<std::string, json*> files = {
+        { "clientbound.json", &pktnames.clientbound },
+        { "serverbound.json", &pktnames.serverbound },
+        { "tribulle_clientbound.json", &pktnames.tribulle.clientbound },
+        { "tribulle_serverbound.json", &pktnames.tribulle.serverbound },
+    };
+
+    auto fs = cmrc::pktnames::get_filesystem();
+    for (auto& [filename, data] : files)
+        *data = json::parse(fs.open(filename));
+}
 
 void detfm::analyze() {
     for (uint32_t i = 0; i < abc->cpool.multinames.size(); ++i) {
@@ -276,8 +287,9 @@ void detfm::rename() {
     base_cpkt->itraits[1].rename("pcode1");
     base_cpkt->itraits[2].rename("buffer");
 
-    auto spkt_name    = base_spkt->get_name();
-    auto rpkt_name    = base_cpkt->get_name();
+    auto spkt_name = base_spkt->get_name();
+    auto rpkt_name = base_cpkt->get_name();
+
     auto clientbound_counter = 0;
     for (auto& klass : abc->classes) {
         if (klass.super_name == 0)
@@ -296,7 +308,8 @@ void detfm::rename() {
 
                 ins = ins->next;
             }
-            klass.rename(fmt.serverbound_packet.format(pcode >> 8, pcode & 0xff));
+            klass.rename(fmt.serverbound_packet.format(
+                pcode >> 8, pcode & 0xff, get_known_name(pktnames.serverbound, pcode)));
 
             set_class_ns(klass, ns.spkt);
         } else if (super_name == rpkt_name) {
@@ -320,7 +333,42 @@ void detfm::rename() {
     klass.rename("$WrapperClass");
     set_class_ns(klass, ns.slot);
 
+    // Rename the instance trait
+    auto& GameClass = abc->classes[0];
+    for (auto& trait : GameClass.ctraits) {
+        if (trait.kind == abc::TraitKind::Slot && trait.slot.type == GameClass.name) {
+            trait.rename("instance");
+            break;
+        }
+    }
+
     find_clientbound_packets();
+}
+
+std::string detfm::get_known_name(json& lookup, std::string code) {
+    if (!lookup.contains(code))
+        return "";
+
+    auto knownname   = lookup[code].get<std::string>();
+    std::string name = "_";
+    bool capitalize  = true;
+    for (auto c : knownname) {
+        if (c == '_' || c == ' ') {
+            capitalize = true;
+            continue;
+        }
+
+        if ((c < 'A' || c > 'Z') && (c < 'a' || c > 'z'))
+            continue;
+
+        name.push_back(capitalize ? std::toupper(c) : c);
+        capitalize = false;
+    }
+
+    return name;
+}
+std::string detfm::get_known_name(json& lookup, uint16_t code) {
+    return get_known_name(lookup, fmt::format("{:0>4x}", code));
 }
 
 void detfm::find_clientbound_packets() {
@@ -359,7 +407,10 @@ void detfm::find_clientbound_packets() {
                             auto klass = find_class_by_name(ins->args[0]);
 
                             if (klass) {
-                                klass->rename(fmt.clientbound_packet.format(category, code));
+                                klass->rename(fmt.clientbound_packet.format(
+                                    category,
+                                    code,
+                                    get_known_name(pktnames.clientbound, category << 8 | code)));
                                 set_class_ns(*klass, ns.cpkt);
                             }
                             break;
@@ -414,7 +465,10 @@ void detfm::find_clientbound_packets(abc::Class& klass, uint32_t& trait_name, ui
                         if (is_sequence(ins, new_class_seq)) {
                             auto klass = find_class_by_name(ins->args[0]);
                             if (klass) {
-                                klass->rename(fmt.clientbound_packet.format(category, code));
+                                klass->rename(fmt.clientbound_packet.format(
+                                    category,
+                                    code,
+                                    get_known_name(pktnames.clientbound, category << 8 | code)));
                                 set_class_ns(*klass, ns.cpkt);
                             }
                             break;
@@ -520,7 +574,8 @@ bool detfm::find_clientbound_tribulle(std::shared_ptr<Instruction> ins) {
 
         // rename it!
         set_class_ns(*klass, ns.tcpkt);
-        klass->rename(fmt.tribulle_clientbound_packet.format(code));
+        klass->rename(fmt.tribulle_clientbound_packet.format(
+            code, get_known_name(pktnames.tribulle.clientbound, code)));
     } while (ins = ins->next);
 
     return true;
@@ -604,8 +659,10 @@ void detfm::find_serverbound_tribulle(abc::Class& klass) {
         if (addr2id.find(addr) == addr2id.end())
             continue;
 
+        auto code = addr2id[addr];
         set_class_ns(*cls, ns.tspkt);
-        cls->rename(fmt.tribulle_serverbound_packet.format(addr2id[addr]));
+        cls->rename(fmt.tribulle_serverbound_packet.format(
+            code, get_known_name(pktnames.tribulle.serverbound, code)));
     }
 }
 

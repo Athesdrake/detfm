@@ -22,6 +22,7 @@ find_package(argparse CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 find_package(Threads REQUIRED)
+find_package(CMakeRC CONFIG REQUIRED)
 
 if(SWFLIB_STATIC)
   find_package(ZLIB REQUIRED)
@@ -29,10 +30,19 @@ if(SWFLIB_STATIC)
 endif()
 find_package(swflib CONFIG REQUIRED)
 
+# Add resources
+cmrc_add_resource_library(
+  packets-names
+  ALIAS rc::packets # cmake name to the resource
+  NAMESPACE pktnames # c++ namespace
+  WHENCE packets # open without packets/
+         packets/clientbound.json packets/tribulle_clientbound.json
+         packets/serverbound.json packets/tribulle_serverbound.json)
+
 # Link dependencies
 target_link_libraries(
   detfm PRIVATE argparse::argparse fmt::fmt nlohmann_json::nlohmann_json
-                yaml-cpp Threads::Threads)
+                yaml-cpp Threads::Threads rc::packets)
 
 if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.4)
   target_link_libraries(detfm PRIVATE stdc++fs)

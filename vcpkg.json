@@ -6,6 +6,7 @@
     "license": "MIT",
     "dependencies": [
         "argparse",
+        "cmakerc",
         "fmt",
         "nlohmann-json",
         "yaml-cpp"

@@ -5,9 +5,11 @@
 #include "utils.hpp"
 #include <abc/parser/Parser.hpp>
 #include <abc/parser/opcodes.hpp>
+#include <cmrc/cmrc.hpp>
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <set>
 #include <string>
@@ -16,8 +18,11 @@
 
 constexpr const char* version = "0.2.0";
 
+using json = nlohmann::json;
 using swf::abc::parser::Instruction;
 namespace abc = swf::abc;
+
+CMRC_DECLARE(pktnames);
 
 class detfm {
     using MethodIterator = std::vector<abc::Method>::iterator;
@@ -29,6 +34,15 @@ public:
     abc::Class* pkt_hdlr  = nullptr;
     std::unique_ptr<WrapClass> wrap_class;
     StaticClasses static_classes;
+
+    struct {
+        json clientbound;
+        json serverbound;
+        struct {
+            json clientbound;
+            json serverbound;
+        } tribulle;
+    } pktnames;
 
     detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger);
 
@@ -42,6 +56,10 @@ public:
     void unscramble(abc::Method& method);
     /* Rename Classes to make it easier to read */
     void rename();
+
+    /* Find a packet's name from its code */
+    std::string get_known_name(json& lookup, std::string code);
+    std::string get_known_name(json& lookup, uint16_t code);
 
 private:
     bool match_serverbound_pkt(abc::Class& klass);

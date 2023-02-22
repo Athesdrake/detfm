@@ -14,6 +14,7 @@
 #include <deque>
 #include <filesystem>
 #include <fmt/format.h>
+#include <fstream>
 #include <functional>
 #include <list>
 #include <map>
@@ -34,71 +35,6 @@ namespace arg = argparse;
 namespace fs  = std::filesystem;
 
 static utils::Logger logger;
-
-template <int slots>
-void check_formats(
-    Fmt& fmt, YAML::Node& node,
-    std::vector<std::pair<std::string, StringFmt<slots> Fmt::*>>&& fields) {
-    for (const auto& [name, field] : fields) {
-        auto child = node[name];
-        if (!child)
-            continue;
-
-        if (!child.IsScalar()) {
-            logger.error("'formats.{}' must be a string.\n", name);
-            continue;
-        }
-
-        auto value = child.template as<std::string>();
-        if (value.empty())
-            continue;
-
-        auto error = StringFmt<slots>::valid(value);
-        if (error) {
-            logger.error("'formats.{}' is not a valid format: {}\n", name, *error);
-        } else {
-            fmt.*field = value;
-        }
-    }
-}
-
-void parse_format(Fmt& fmt, std::string config_file) {
-    if (config_file.empty())
-        return;
-
-    auto tree = YAML::LoadFile(config_file);
-    auto node = tree["formats"];
-
-    if (!node)
-        return;
-
-    if (!node.IsMap())
-        return logger.error("Node 'formats' must be a map {}:{}\n", config_file, node.Mark().line);
-
-    check_formats<1>(
-        fmt,
-        node,
-        {
-            { "classes", &Fmt::classes },
-            { "consts", &Fmt::consts },
-            { "functions", &Fmt::functions },
-            { "names", &Fmt::names },
-            { "vars", &Fmt::vars },
-            { "methods", &Fmt::methods },
-            { "errors", &Fmt::errors },
-            { "packet_subhandler", &Fmt::packet_subhandler },
-            { "unknown_clientbound_packet", &Fmt::unknown_clientbound_packet },
-            { "tribulle_clientbound_packet", &Fmt::tribulle_clientbound_packet },
-            { "tribulle_serverbound_packet", &Fmt::tribulle_serverbound_packet },
-        });
-    check_formats<2>(
-        fmt,
-        node,
-        {
-            { "clientbound_packet", &Fmt::clientbound_packet },
-            { "serverbound_packet", &Fmt::serverbound_packet },
-        });
-}
 
 uint32_t get_jobs(const uint32_t jobs) {
     if (jobs == 0)
@@ -185,6 +121,9 @@ int main(int argc, char const* argv[]) {
     program.add_argument("-c", "--config")
         .help("Specify a config file.")
         .default_value(std::string(""));
+    program.add_argument("--dump-config")
+        .help("Dump the default config file to the specified file.")
+        .default_value(std::string(""));
     program.add_argument("-C", "--compression")
         .help(
             "Set the compression algorithm for the ouput file. Possible values: none, zlib, lzma.")
@@ -210,6 +149,7 @@ int main(int argc, char const* argv[]) {
     const auto input       = program.get("input");
     const auto output      = program.get("output");
     const auto config      = program.get("--config");
+    const auto dump_config = program.get("--dump-config");
     const auto compression = program.get("--compression");
     const auto jobs        = get_jobs(program.get<uint32_t>("--jobs"));
 
@@ -218,7 +158,16 @@ int main(int argc, char const* argv[]) {
     std::vector<uint8_t> buffer;
 
     Fmt fmt;
-    parse_format(fmt, config);
+
+    if (!config.empty()) {
+        std::ifstream file(config);
+        json cfg = json::parse(file);
+        fmt.from_json(cfg, logger);
+    }
+    if (!dump_config.empty()) {
+        std::ofstream file(dump_config);
+        file << Fmt::to_json().dump(4);
+    }
 
     logger.info("Reading file '{}'. ", input);
     try {

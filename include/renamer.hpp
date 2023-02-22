@@ -1,62 +1,63 @@
 #pragma once
+#include "utils.hpp"
 #include <abc/parser/Parser.hpp>
 #include <fmt/core.h>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <string>
 #include <string_view>
 
 namespace abc = swf::abc;
+using json    = nlohmann::json;
 
+std::optional<std::string> check_format(std::string const& format, fmt::format_args args);
 struct StringFmtBase {
     std::string value;
 
     StringFmtBase(std::string value) : value(value) { }
     StringFmtBase(const char* value) : value(value) { }
 
-    virtual std::optional<std::string> valid() const = 0;
+    virtual std::optional<std::string> valid(std::string const&) const = 0;
+    std::optional<std::string> valid() const { return valid(value); }
 };
 
-template <int slots> struct StringFmt;
-template <> struct StringFmt<1> : public StringFmtBase {
+template <typename... Types> struct StringFmt : public StringFmtBase {
     using StringFmtBase::StringFmtBase;
 
-    static std::optional<std::string> valid(std::string const& format);
-    std::optional<std::string> valid() const override { return StringFmt<1>::valid(value); }
+    std::optional<std::string> valid(std::string const& format) const override {
+        return check_format(format, fmt::make_format_args(Types()...));
+    }
 
-    std::string format(int a);
-};
-template <> struct StringFmt<2> : public StringFmtBase {
-    using StringFmtBase::StringFmtBase;
-
-    static std::optional<std::string> valid(std::string const& format);
-    std::optional<std::string> valid() const override { return StringFmt<2>::valid(value); }
-
-    std::string format(int a, int b);
+    std::string format(Types... args) { return fmt::format(value, args...); }
 };
 
 class Fmt {
 public:
-    StringFmt<1> classes   = "class_{:03d}";
-    StringFmt<1> consts    = "const_{:03d}";
-    StringFmt<1> functions = "function_{:03d}";
-    StringFmt<1> names     = "name_{:03d}";
-    StringFmt<1> vars      = "var_{:03d}";
-    StringFmt<1> methods   = "method_{:03d}";
-    StringFmt<1> errors    = "error{:d}";
+    StringFmt<uint32_t> classes   = "class_{:03d}";
+    StringFmt<uint32_t> consts    = "const_{:03d}";
+    StringFmt<uint32_t> functions = "function_{:03d}";
+    StringFmt<uint32_t> names     = "name_{:03d}";
+    StringFmt<uint32_t> vars      = "var_{:03d}";
+    StringFmt<uint32_t> methods   = "method_{:03d}";
+    StringFmt<uint32_t> errors    = "error{:d}";
 
-    StringFmt<1> packet_subhandler  = "PacketSubHandler_{:02x}";
-    StringFmt<2> clientbound_packet = "CPacket_{:02x}_{:02x}";
-    StringFmt<2> serverbound_packet = "SPacket_{:02x}_{:02x}";
+    StringFmt<uint8_t, uint8_t, std::string> clientbound_packet  = "CPacket{:02x}{:02x}{}";
+    StringFmt<uint8_t, uint8_t, std::string> serverbound_packet  = "SPacket{:02x}{:02x}{}";
+    StringFmt<uint16_t, std::string> tribulle_clientbound_packet = "TCPacket_{:04x}{}";
+    StringFmt<uint16_t, std::string> tribulle_serverbound_packet = "TSPacket_{:04x}{}";
 
-    StringFmt<1> unknown_clientbound_packet  = "CPacket_u{:02d}";
-    StringFmt<1> tribulle_clientbound_packet = "TCPacket_{:04x}";
-    StringFmt<1> tribulle_serverbound_packet = "TSPacket_{:04x}";
+    StringFmt<uint16_t> packet_subhandler          = "PacketSubHandler_{:02x}";
+    StringFmt<uint16_t> unknown_clientbound_packet = "CPacket_u{:02d}";
 
     Fmt();
 
-    // throw an error if any format is invalid
-    void check_formats() const;
+    void from_json(json& config, utils::Logger& logger);
+    static json to_json();
+
+protected:
+    using Fields = std::vector<std::pair<std::string, StringFmtBase*>>;
+    Fields get_fields();
 };
 
 // Helper that renames invalid symbols using the format specified
