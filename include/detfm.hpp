@@ -34,6 +34,8 @@ public:
 
     /* Find classes needed to unscrumble the code */
     void analyze();
+    /* Simplify expressions inside the classes' init method */
+    void simplify_init();
     /* Unscramble bytecode by removing useless wrapper methods and resolving static slots */
     void unscramble();
     void unscramble(MethodIterator first, MethodIterator last);

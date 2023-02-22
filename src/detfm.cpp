@@ -1,6 +1,7 @@
 #include "detfm.hpp"
 #include "detfm/common.hpp"
 #include "detfm/opinfo.hpp"
+#include "detfm/simplify.hpp"
 #include "utils.hpp"
 #include <algorithm>
 #include <cstdio>
@@ -88,6 +89,18 @@ void detfm::analyze() {
 
     if (!missings.empty())
         throw std::runtime_error(fmt::format("Some classes are missing: {}", missings));
+}
+
+void detfm::simplify_init() {
+    for (auto& cls : abc->classes) {
+        auto& method = abc->methods[cls.cinit];
+        auto name    = abc::str(abc, cls.name);
+        try {
+            simplify_expressions(abc, method);
+        } catch (std::runtime_error& e) {
+            logger.warn("Unable to simplify class initializer for {}: {}\n", name, e.what());
+        }
+    }
 }
 
 void detfm::unscramble() {

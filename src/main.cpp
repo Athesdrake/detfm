@@ -294,6 +294,7 @@ int main(int argc, char const* argv[]) {
     logger.info("Unscrambling methods.\n");
 
     unscramble(detfm, abc, jobs);
+    detfm.simplify_init();
 
     logger.log_done(tps, "Unscrambling methods");
     logger.info("Renaming interesting stuff. ");
