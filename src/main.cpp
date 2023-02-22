@@ -1,4 +1,5 @@
 #include "detfm.hpp"
+#include "detfm/common.hpp"
 #include "fmt_swf.hpp"
 #include "match/ClassMatcher.hpp"
 #include "match/MatchResult.hpp"
@@ -254,6 +255,26 @@ int main(int argc, char const* argv[]) {
 
     auto abc   = frame1->second->abcfile;
     auto cpool = &abc->cpool;
+
+    // Rename the symbols to something more readable
+    // In fact it's the fully qualified name of a class,
+    // so we could rename the symbol using the class' name, but that's not really useful
+    for (auto& it : movie.symbol_class->symbols) {
+        if (!Renamer::invalid(it.second))
+            continue;
+
+        const auto pos  = it.second.find('_');
+        const auto name = it.second.substr(pos + 1);
+        if (!Renamer::invalid(name))
+            it.second = name;
+    }
+
+    // Rename the first class as the Game class
+    // Rename the symbol too, so we can Go to document class
+    // Not using "Transformice" as the name, since this tool should work on other games too
+    // NOTE: FrameLabelTag should be renamed too
+    movie.symbol_class->symbols[0] = "Game";
+    abc->classes[0].rename("Game");
 
     try {
         Renamer renamer(abc, fmt);
