@@ -1,8 +1,9 @@
 FROM athes/swflib:alpine as build-stage
 
-ARG VCPKG_TOOLCHAIN="-DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake"
+ARG CMAKE_BUILD_TYPE=Release
 ARG SWFLIB_STATIC=ON
-ARG BUILD_TYPE=Release
+# Increase the default thread stack size to 8 MB as the default is not enough on alpine
+ARG LDFLAGS -Wl,-z,stack-size=8388608
 
 # Build & install mimalloc, since musl's allocator is terrible
 WORKDIR /src
@@ -16,9 +17,7 @@ WORKDIR /src/detfm
 COPY . .
 
 WORKDIR /build/detfm
-ENV LDFLAGS -Wl,-z,stack-size=8388608
-RUN VCPKG_FORCE_SYSTEM_BINARIES=1 /vcpkg/vcpkg install fmt yaml-cpp && \
-    cmake /src/detfm $VCPKG_TOOLCHAIN -DSWFLIB_STATIC=$SWFLIB_STATIC -DCMAKE_BUILD_TYPE=$BUILD_TYPE && \
+RUN cmake /src/detfm -DSWFLIB_STATIC=$SWFLIB_STATIC && \
     cmake --build . && \
     cmake --install . --strip
 

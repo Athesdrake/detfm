@@ -1,6 +1,5 @@
 FROM athes/swflib:debian-slim as build-stage
 
-ARG VCPKG_TOOLCHAIN="-DCMAKE_TOOLCHAIN_FILE=/vcpkg/scripts/buildsystems/vcpkg.cmake"
 ARG SWFLIB_STATIC=ON
 ARG BUILD_TYPE=Release
 
@@ -8,8 +7,7 @@ WORKDIR /src/detfm
 COPY . .
 
 WORKDIR /build/detfm
-RUN /vcpkg/vcpkg install fmt yaml-cpp && \
-    cmake /src/detfm $VCPKG_TOOLCHAIN -DSWFLIB_STATIC=$SWFLIB_STATIC -DCMAKE_BUILD_TYPE=$BUILD_TYPE && \
+RUN cmake /src/detfm -DSWFLIB_STATIC=$SWFLIB_STATIC -DCMAKE_BUILD_TYPE=$BUILD_TYPE && \
     cmake --build . && \
     cmake --install . --strip
 

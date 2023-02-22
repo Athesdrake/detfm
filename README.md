@@ -54,3 +54,11 @@ Afterward, you'll be able to build the project:
 ```sh
 cmake --build .
 ```
+
+## Docker images
+Docker images are provided in the [`docker`](./docker) folder.
+There are two different images:
+1. `debian-slim` - good compromise between size and features
+2. `alpine` - minimal size but has several hacks to make the tool work correctly (and with good performances)
+
+It's also a good example for building steps.

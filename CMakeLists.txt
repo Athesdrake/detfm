@@ -1,4 +1,11 @@
 cmake_minimum_required(VERSION 3.14)
+
+option(SET_RPATH "Set runtime path to the ${CMAKE_INSTALL_PREFIX}/lib." ON)
+option(SWFLIB_STATIC "Link swflib statically instead of dynamic linking." ON)
+if(SWFLIB_STATIC)
+  list(APPEND VCPKG_MANIFEST_FEATURES "static")
+endif()
+
 project(detfm CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -11,26 +18,21 @@ target_include_directories(
 
 # Find dependencies
 find_package(fmt CONFIG REQUIRED)
-# find_package(argparse CONFIG REQUIRED)
+find_package(argparse CONFIG REQUIRED)
+find_package(nlohmann_json CONFIG REQUIRED)
 find_package(yaml-cpp CONFIG REQUIRED)
 find_package(Threads REQUIRED)
 
-option(SET_RPATH "Set runtime path to the ${CMAKE_INSTALL_PREFIX}/lib." ON)
-option(SWFLIB_STATIC "Link swflib statically instead of dynamic linking." ON)
 if(SWFLIB_STATIC)
   find_package(ZLIB REQUIRED)
   find_package(LibLZMA REQUIRED)
 endif()
-find_package(argparse CONFIG REQUIRED)
-find_package(fmt CONFIG REQUIRED)
-find_package(yaml-cpp CONFIG REQUIRED)
 find_package(swflib CONFIG REQUIRED)
 
 # Link dependencies
-target_link_libraries(detfm PRIVATE argparse::argparse)
-target_link_libraries(detfm PRIVATE fmt::fmt)
-target_link_libraries(detfm PRIVATE yaml-cpp)
-target_link_libraries(detfm PRIVATE Threads::Threads)
+target_link_libraries(
+  detfm PRIVATE argparse::argparse fmt::fmt nlohmann_json::nlohmann_json
+                yaml-cpp Threads::Threads)
 
 if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.4)
   target_link_libraries(detfm PRIVATE stdc++fs)

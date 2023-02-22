@@ -1,0 +1,22 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "name": "detfm",
+    "version-string": "0.2.0",
+    "description": "A Transformice tool that helps you deobfuscate it.",
+    "license": "MIT",
+    "dependencies": [
+        "argparse",
+        "fmt",
+        "nlohmann-json",
+        "yaml-cpp"
+    ],
+    "features": {
+        "static": {
+            "description": "Use swflib-static",
+            "dependencies": [
+                "zlib",
+                "liblzma"
+            ]
+        }
+    }
+}
