@@ -7,6 +7,7 @@
 #include <abc/AbcFile.hpp>
 #include <abc/parser/Parser.hpp>
 #include <algorithm>
+#include <argparse/argparse.hpp>
 #include <array>
 #include <cstdint>
 #include <deque>
@@ -25,8 +26,6 @@
 #include <utility>
 #include <variant>
 #include <vector>
-#define ARGPARSE_LONG_VERSION_ARG_ONLY
-#include <argparse/argparse.hpp>
 
 using namespace swf::abc::parser;
 using namespace fmt::literals;
@@ -140,11 +139,35 @@ void unscramble(detfm& detfm, std::shared_ptr<abc::AbcFile>& abc, uint32_t jobs)
         th.join();
 }
 
+auto arg_choices(std::vector<std::string> choices, std::string error_message = "Invalid choice.") {
+    return [&](const std::string& value) {
+        std::string lower;
+        for (auto& c : value)
+            lower.push_back(std::tolower(c));
+
+        auto it = std::find(choices.begin(), choices.end(), lower);
+        if (it == choices.end())
+            throw std::runtime_error(
+                fmt::format("{} Valid values are: [{}]", error_message, fmt::join(choices, ", ")));
+
+        return *it;
+    };
+}
+
 int main(int argc, char const* argv[]) {
     int verbosity = 0;
-    arg::ArgumentParser program("detfm", version);
+    arg::ArgumentParser program("detfm", version, arg::default_arguments::help);
     program.add_description(
         "Deobfuscate Transformice SWF file. The file needs to be unpacked first.");
+    program.add_argument("-V", "--version")
+        .action([](const auto&) {
+            std::cout << version << std::endl;
+            std::exit(0);
+        })
+        .default_value(false)
+        .help("prints version information and exits")
+        .implicit_value(true)
+        .nargs(0);
     program.add_argument("-v", "--verbose")
         .help("Increase output verbosity. Verbose messages go to stderr.")
         .action([&verbosity](const auto& v) { ++verbosity; })
@@ -165,18 +188,7 @@ int main(int argc, char const* argv[]) {
         .help(
             "Set the compression algorithm for the ouput file. Possible values: none, zlib, lzma.")
         .default_value(std::string("none"))
-        .action([](const std::string& value) {
-            static const auto choices = { "none", "zlib", "lzma" };
-            std::string lower;
-            for (auto& c : value)
-                lower.push_back(std::tolower(c));
-
-            auto it = std::find(choices.begin(), choices.end(), lower);
-            if (it == choices.end())
-                throw std::runtime_error("Invalid compression algorithm");
-
-            return *it;
-        });
+        .action(arg_choices({ "none", "zlib", "lzma" }, "Invalid compression algorithm."));
     program.add_argument("input").help("The file to deobfuscate.").required();
     program.add_argument("output").help("The ouput file.").required();
 
