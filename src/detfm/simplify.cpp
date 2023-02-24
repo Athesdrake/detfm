@@ -119,6 +119,19 @@ void edit_ins(
     }
 }
 
+bool eval_bool(StackValue value) {
+    if (std::holds_alternative<bool>(value))
+        return std::get<bool>(value);
+
+    if (std::holds_alternative<double>(value))
+        return std::get<double>(value) != 0.0;
+
+    if (std::holds_alternative<std::string>(value))
+        return !std::get<std::string>(value).empty();
+
+    return false;
+}
+
 void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& method) {
     Parser parser(method);
     std::stack<StackValue> stack;
@@ -154,7 +167,6 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
     ins = parser.begin;
     for (auto& err : method.exceptions)
         exceptions.emplace_back(err, insreg);
-
 
     bool modified = false;
     while (ins) {
@@ -225,6 +237,15 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
                 edit_ins(abc, parser, insreg, stack, opinfo, 1);
             }
             break;
+        }
+        case OP::callproperty: {
+            if (ins->args[1] == 1 && abc::str(abc, ins->args[0]) == "Boolean") {
+                modified    = true;
+                stack.top() = eval_bool(stack.top());
+                edit_ins(abc, parser, insreg, stack, opinfo, 2);
+                break;
+            }
+            /* fallthrough */
         }
         default: {
             if (stack_operations.find(ins->opcode) == stack_operations.end())
