@@ -122,6 +122,7 @@ void edit_ins(
 void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& method) {
     Parser parser(method);
     std::stack<StackValue> stack;
+    std::vector<ErrorInfo> exceptions;
 
     OpRegister insreg;
     // populate the instruction register
@@ -151,6 +152,9 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
         ins = ins->next;
     }
     ins = parser.begin;
+    for (auto& err : method.exceptions)
+        exceptions.emplace_back(err, insreg);
+
 
     bool modified = false;
     while (ins) {
@@ -277,5 +281,11 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
         method.code.clear();
         method.code.insert(
             method.code.end(), stream.get_buffer(), stream.get_buffer() + stream.size());
+
+        for (auto i = 0; i < method.exceptions.size(); ++i) {
+            method.exceptions[i].from   = exceptions[i].from->addr;
+            method.exceptions[i].to     = exceptions[i].to->addr;
+            method.exceptions[i].target = exceptions[i].target->addr;
+        }
     }
 }
