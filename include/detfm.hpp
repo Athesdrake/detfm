@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-constexpr const char* version = "0.3.0";
+constexpr const char* version = "0.3.1";
 
 using json = nlohmann::json;
 using swf::abc::parser::Instruction;
