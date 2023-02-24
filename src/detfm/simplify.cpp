@@ -231,7 +231,7 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
             break;
         }
         case OP::negate: {
-            if (!std::holds_alternative<double>(stack.top())) {
+            if (std::holds_alternative<double>(stack.top())) {
                 modified    = true;
                 stack.top() = -std::get<double>(stack.top());
                 edit_ins(abc, parser, insreg, stack, opinfo, 1);
