@@ -100,7 +100,7 @@ void edit_ins(
     if (std::holds_alternative<double>(stack.top())) {
         const auto& value = std::get<double>(stack.top());
         if (std::fmod(value, 1) != 0 || std::abs(value) > 0x8000) {
-            uint32_t index = abc->cpool.strings.size();
+            uint32_t index = abc->cpool.doubles.size();
             abc->cpool.doubles.push_back(value);
             opinfo->ins->opcode = OP::pushdouble;
             opinfo->ins->args   = { index };
