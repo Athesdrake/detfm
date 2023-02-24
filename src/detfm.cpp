@@ -193,9 +193,26 @@ void detfm::unscramble(abc::Method& method) {
                 opinfo = insreg[ins->addr];
                 if (klass.is_slot(ins)) {
                     auto trait = klass.slots[ins->args[0]];
-                    opinfo->ins->opcode
-                        = trait->slot.kind == 0x01 ? OP::pushstring : OP::pushdouble;
-                    opinfo->ins->args = { trait->index };
+                    switch (trait->slot.kind) {
+                    case 0x01:
+                        opinfo->ins->opcode = OP::pushstring;
+                        opinfo->ins->args   = { trait->index };
+                        break;
+                    case 0x06:
+                        opinfo->ins->opcode = OP::pushdouble;
+                        opinfo->ins->args   = { trait->index };
+                        break;
+                    case 0x0A:
+                        opinfo->ins->opcode = OP::pushfalse;
+                        opinfo->ins->args.clear();
+                        break;
+                    case 0x0B:
+                        opinfo->ins->opcode = OP::pushtrue;
+                        opinfo->ins->args.clear();
+                        break;
+                    default:
+                        break;
+                    }
                     lastop->remove(parser, insreg);
 
                     modified = true;

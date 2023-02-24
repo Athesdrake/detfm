@@ -237,13 +237,13 @@ int main(int argc, char const* argv[]) {
     logger.info("Analyzing methods and classes. ");
 
     detfm detfm(abc, fmt, logger);
+    detfm.simplify_init();
     detfm.analyze();
 
     logger.log_done(tps, "Analyzing methods and classes");
     logger.info("Unscrambling methods.\n");
 
     unscramble(detfm, abc, jobs);
-    detfm.simplify_init();
 
     logger.log_done(tps, "Unscrambling methods");
     logger.info("Renaming interesting stuff. ");
