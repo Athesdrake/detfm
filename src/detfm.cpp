@@ -59,7 +59,7 @@ detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger)
 void detfm::analyze() {
     for (uint32_t i = 0; i < abc->cpool.multinames.size(); ++i) {
         auto& mn = abc->cpool.multinames[i];
-        if (mn.kind == abc::MultinameKind::QName && abc::str(abc, mn) == "ByteArray") {
+        if (mn.kind == abc::MultinameKind::QName && abc->str(mn) == "ByteArray") {
             ByteArray = i;
             break;
         }
@@ -105,7 +105,7 @@ void detfm::analyze() {
 void detfm::simplify_init() {
     for (auto& cls : abc->classes) {
         auto& method = abc->methods[cls.cinit];
-        auto name    = abc::str(abc, cls.name);
+        auto name    = abc->str(cls.name);
         try {
             simplify_expressions(abc, method);
         } catch (std::runtime_error& e) {
@@ -532,7 +532,7 @@ bool detfm::find_clientbound_tribulle(std::shared_ptr<Instruction> ins) {
     ins = ins->next;
     // then we should have 2 getproperty
     while (ins && ins->opcode == OP::getproperty) {
-        auto name = abc::str(abc, ins->args[0]);
+        auto name = abc->str(ins->args[0]);
         // Make sure we get a slot trait with a specified type
         if (!(trait = find_trait(*klass, ins->args[0])) || trait->kind != abc::TraitKind::Slot
             || trait->slot.type == 0)
@@ -624,7 +624,7 @@ void detfm::find_serverbound_tribulle(abc::Class& klass) {
             continue;
 
         auto& meth = abc->methods[trait.index];
-        if (meth.params.size() != 1 || abc::qname(abc, meth.return_type) != "int")
+        if (meth.params.size() != 1 || abc->qname(meth.return_type) != "int")
             continue;
 
         method = meth;
@@ -830,12 +830,12 @@ bool detfm::match_slot_class(abc::Class& klass) {
         if (is_slot && trait.attr != 0)
             return false;
 
-        if (is_method && trait.attr != abc::TraitAttributes::Final)
+        if (is_method && !(trait.attr & abc::TraitAttr::Final))
             return false;
 
         if (is_method) {
             auto& method     = abc->methods[trait.index];
-            auto return_type = abc::qname(abc, method.return_type);
+            auto return_type = abc->qname(method.return_type);
             if (return_type != "int" && return_type != "Number")
                 return false;
         }

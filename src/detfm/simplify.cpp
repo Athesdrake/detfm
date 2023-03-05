@@ -239,7 +239,7 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
             break;
         }
         case OP::callproperty: {
-            if (ins->args[1] == 1 && abc::str(abc, ins->args[0]) == "Boolean") {
+            if (ins->args[1] == 1 && abc->str(ins->args[0]) == "Boolean") {
                 modified    = true;
                 stack.top() = eval_bool(stack.top());
                 edit_ins(abc, parser, insreg, stack, opinfo, 2);
