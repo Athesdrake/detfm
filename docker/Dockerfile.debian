@@ -1,13 +1,13 @@
 FROM athes/swflib:debian-slim as build-stage
 
 ARG SWFLIB_STATIC=ON
-ARG BUILD_TYPE=Release
+ARG CMAKE_BUILD_TYPE=Release
 
 WORKDIR /src/detfm
 COPY . .
 
 WORKDIR /build/detfm
-RUN cmake /src/detfm -DSWFLIB_STATIC=$SWFLIB_STATIC -DCMAKE_BUILD_TYPE=$BUILD_TYPE && \
+RUN cmake /src/detfm -DSWFLIB_STATIC=$SWFLIB_STATIC && \
     cmake --build . && \
     cmake --install . --strip
 

@@ -4,3 +4,4 @@
 !src/
 !CMakeLists.txt
 !vcpkg.json
+!packets/
