@@ -28,10 +28,11 @@ class detfm {
     using MethodIterator = std::vector<abc::Method>::iterator;
 
 public:
-    uint32_t ByteArray    = 0;
-    abc::Class* base_spkt = nullptr; // Base serverbound packet
-    abc::Class* base_cpkt = nullptr; // Base clientbound packet
-    abc::Class* pkt_hdlr  = nullptr;
+    uint32_t ByteArray        = 0;
+    abc::Class* base_spkt     = nullptr; // Base serverbound packet
+    abc::Class* base_cpkt     = nullptr; // Base clientbound packet
+    abc::Class* pkt_hdlr      = nullptr;
+    abc::Class* varint_reader = nullptr;
     std::unique_ptr<WrapClass> wrap_class;
     StaticClasses static_classes;
 
@@ -66,11 +67,17 @@ private:
     bool match_clientbound_pkt(abc::Class& klass);
     bool match_wrap_class(abc::Class& klass);
     bool match_slot_class(abc::Class& klass);
+    bool match_varint_reader(abc::Class& klass);
     bool match_packet_handler(abc::Class& klass);
     bool match_packet_handler(abc::Trait& trait);
 
+    /* Check if the given trait is a buffer */
+    bool is_buffer_trait(abc::Trait& trait);
+
     /* Rename any method that is an equivalent to write*() */
     void rename_writeany();
+    /* Rename any method that is an equivalent to read*() */
+    void rename_readany();
 
     void find_clientbound_packets();
     void find_clientbound_packets(abc::Class& klass, uint32_t& trait_name, uint8_t& category);

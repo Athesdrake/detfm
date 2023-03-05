@@ -76,6 +76,8 @@ void detfm::analyze() {
             static_classes.classes.try_emplace(klass.name, abc, klass);
         } else if (match_packet_handler(klass)) {
             pkt_hdlr = &klass;
+        } else if (match_varint_reader(klass)) {
+            varint_reader = &klass;
         }
     }
 
@@ -94,6 +96,9 @@ void detfm::analyze() {
 
     if (pkt_hdlr == nullptr)
         missings.push_back("Packet Handler Class");
+
+    if (varint_reader == nullptr)
+        missings.push_back("VarInt Reader Class");
 
     if (static_classes.classes.empty())
         missings.push_back("Static Classes");
@@ -294,15 +299,28 @@ void detfm::rename() {
 
     set_class_ns(*base_spkt, ns.pkt);
     set_class_ns(*base_cpkt, ns.pkt);
+    set_class_ns(*varint_reader, ns.pkt);
 
     base_spkt->rename("SPacketBase");
     base_spkt->itraits[2].rename("pcode");
+
+    auto meta_index = abc->metadatas.size();
+    auto& metadata  = abc->metadatas.emplace_back(abc.get());
+    metadata.name   = abc->cpool.strings.size();
+    abc->cpool.strings.push_back("buffer");
+
+    varint_reader->rename("VarIntReader");
+    varint_reader->itraits[0].rename("buffer");
+    varint_reader->itraits[0].metadatas.push_back(meta_index);
+
     rename_writeany();
+    rename_readany();
 
     base_cpkt->rename("CPacketBase");
     base_cpkt->itraits[0].rename("pcode0");
     base_cpkt->itraits[1].rename("pcode1");
     base_cpkt->itraits[2].rename("buffer");
+    base_cpkt->itraits[2].metadatas.push_back(meta_index);
 
     auto spkt_name = base_spkt->get_name();
     auto rpkt_name = base_cpkt->get_name();
@@ -422,14 +440,15 @@ void detfm::find_clientbound_packets() {
                     while (ins && ins->opcode != OP::returnvoid) {
                         if (is_sequence(ins, new_class_seq)) {
                             auto klass = find_class_by_name(ins->args[0]);
+                            if (!klass
+                                || (!klass->itraits.empty() && is_buffer_trait(klass->itraits[0])))
+                                break;
 
-                            if (klass) {
-                                klass->rename(fmt.clientbound_packet.format(
-                                    category,
-                                    code,
-                                    get_known_name(pktnames.clientbound, category << 8 | code)));
-                                set_class_ns(*klass, ns.cpkt);
-                            }
+                            klass->rename(fmt.clientbound_packet.format(
+                                category,
+                                code,
+                                get_known_name(pktnames.clientbound, category << 8 | code)));
+                            set_class_ns(*klass, ns.cpkt);
                             break;
                         }
                         ins = ins->next;
@@ -842,6 +861,16 @@ bool detfm::match_slot_class(abc::Class& klass) {
     }
     return true;
 }
+bool detfm::match_varint_reader(abc::Class& klass) {
+    auto& init_params = abc->methods[klass.iinit].params;
+    if (klass.itraits.empty() || init_params.empty() || init_params[0] != ByteArray)
+        return false;
+
+    if (klass.itraits[0].kind != abc::TraitKind::Slot || klass.itraits[0].slot.type != ByteArray)
+        return false;
+
+    return true;
+}
 bool detfm::match_packet_handler(abc::Class& klass) {
     if (!klass.itraits.empty())
         return false;
@@ -859,6 +888,13 @@ bool detfm::match_packet_handler(abc::Trait& trait) {
         return false;
 
     return method.params.size() == 1 && method.params[0] == ByteArray;
+}
+
+bool detfm::is_buffer_trait(abc::Trait& trait) {
+    if (trait.kind != abc::TraitKind::Slot || trait.slot.type != ByteArray)
+        return false;
+
+    return abc->qname(trait.name) == "buffer";
 }
 
 void detfm::rename_writeany() {
@@ -903,6 +939,41 @@ void detfm::rename_writeany() {
                 if (name != 0)
                     trait.rename(abc->cpool.strings[name]);
             }
+        }
+    }
+}
+
+void detfm::rename_readany() {
+    bool read_varint = false;
+    for (auto& trait : varint_reader->itraits) {
+        if (trait.kind != swf::abc::TraitKind::Method)
+            continue;
+
+        auto& method = abc->methods[trait.index];
+        if (method.params.empty() && method.local_count == 1 && method.max_stack <= 2
+            && method.init_scope_depth == method.max_scope_depth - 1) {
+            Parser parser(method);
+            auto ins = parser.begin;
+            if (!skip_to_opcode(ins, OP::getproperty)
+                || ins->args[0] != varint_reader->itraits[0].name)
+                continue;
+
+            if (!ins->next || ins->next->opcode != OP::callproperty)
+                continue;
+
+            std::string name;
+            // instead of using `ByteArray.readBoolean()`, `ByteArray.readByte() != 0` is used
+            // so we work around it
+            if (abc->qname(method.return_type) == "Boolean") {
+                name = "readBoolean";
+            } else {
+                auto mn = abc->cpool.multinames[ins->next->args[0]];
+                name    = abc->cpool.strings[mn.get_name_index()];
+            }
+            trait.rename(name);
+        } else if (!read_varint) {
+            read_varint = true;
+            trait.rename("readVarInt");
         }
     }
 }
