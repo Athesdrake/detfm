@@ -832,6 +832,13 @@ bool detfm::match_slot_class(abc::Class& klass) {
 
         if (is_method && trait.attr != abc::TraitAttributes::Final)
             return false;
+
+        if (is_method) {
+            auto& method     = abc->methods[trait.index];
+            auto return_type = abc::qname(abc, method.return_type);
+            if (return_type != "int" && return_type != "Number")
+                return false;
+        }
     }
     return true;
 }
