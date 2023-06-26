@@ -1,7 +1,7 @@
 {
     "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
     "name": "detfm",
-    "version-string": "0.3.2",
+    "version-string": "0.3.3",
     "description": "A Transformice tool that helps you deobfuscate it.",
     "license": "MIT",
     "dependencies": [
