@@ -84,10 +84,10 @@ void detfm::analyze() {
         missings.push_back("ByteArray Multiname");
 
     if (base_spkt == nullptr)
-        missings.push_back("Send Base Packet");
+        missings.push_back("Serverbound Base Packet");
 
     if (base_cpkt == nullptr)
-        missings.push_back("Receive Base Packet");
+        missings.push_back("Clientbound Base Packet");
 
     if (wrap_class == nullptr)
         missings.push_back("Wrapper Class");
@@ -299,7 +299,7 @@ void detfm::rename() {
     base_spkt->itraits[2].rename("pcode");
     rename_writeany();
 
-    base_cpkt->rename("RPacketBase");
+    base_cpkt->rename("CPacketBase");
     base_cpkt->itraits[0].rename("pcode0");
     base_cpkt->itraits[1].rename("pcode1");
     base_cpkt->itraits[2].rename("buffer");
@@ -565,7 +565,7 @@ bool detfm::find_clientbound_tribulle(std::shared_ptr<Instruction> ins) {
     auto& method = abc->methods[trait->index];
     if (klass = find_class_by_name(method.return_type)) {
         set_class_ns(*klass, ns.tpkt);
-        klass->rename("TRPacketBase");
+        klass->rename("TCPacketBase");
     }
 
     parser = Parser(method);
