@@ -124,6 +124,10 @@ int main(int argc, char const* argv[]) {
     program.add_argument("--dump-config")
         .help("Dump the default config file to the specified file.")
         .default_value(std::string(""));
+    program.add_argument("--ignore-missing")
+        .help("Ignore missing classes and proceed anyway. It will likely crash.")
+        .default_value(false)
+        .implicit_value(true);
     program.add_argument("-C", "--compression")
         .help(
             "Set the compression algorithm for the ouput file. Possible values: none, zlib, lzma.")
@@ -238,9 +242,21 @@ int main(int argc, char const* argv[]) {
 
     detfm detfm(abc, fmt, logger);
     detfm.simplify_init();
-    detfm.analyze();
+    auto missing_classes = detfm.analyze();
 
     logger.log_done(tps, "Analyzing methods and classes");
+    if (!missing_classes.empty()) {
+        logger.warn(
+            "{} could not be found:\n - {}\n",
+            (missing_classes.size() == 1 ? "This class" : "These classes"),
+            fmt::join(missing_classes, "\n - "));
+
+        if (!program.get<bool>("--ignore-missing")) {
+            logger.error("Use --ignore-missing to ignore this warning and continue.\n"
+                         "Continuing will most likely result in a crash.\n");
+            return 3;
+        }
+    }
     logger.info("Unscrambling methods.\n");
 
     unscramble(detfm, abc, jobs);

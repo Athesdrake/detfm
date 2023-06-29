@@ -56,7 +56,7 @@ detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger)
         *data = json::parse(fs.open(filename));
 }
 
-void detfm::analyze() {
+std::vector<std::string> detfm::analyze() {
     for (uint32_t i = 0; i < abc->cpool.multinames.size(); ++i) {
         auto& mn = abc->cpool.multinames[i];
         if (mn.kind == abc::MultinameKind::QName && abc->str(mn) == "ByteArray") {
@@ -108,8 +108,7 @@ void detfm::analyze() {
         if (value == nullptr)
             missings.push_back(message);
 
-    if (!missings.empty())
-        throw std::runtime_error(fmt::format("Some classes are missing: {}", missings));
+    return missings;
 }
 
 void detfm::simplify_init() {
@@ -302,60 +301,66 @@ void detfm::rename() {
     ns.tspkt = create_package("packets.tribulle.serverbound");
     ns.tcpkt = create_package("packets.tribulle.clientbound");
 
-    set_class_ns(*base_spkt, ns.pkt);
-    set_class_ns(*base_cpkt, ns.pkt);
-    set_class_ns(*varint_reader, ns.pkt);
-
-    base_spkt->rename("SPacketBase");
-    base_spkt->itraits[2].rename("pcode");
+    if (base_spkt != nullptr) {
+        set_class_ns(*base_spkt, ns.pkt);
+        base_spkt->rename("SPacketBase");
+        base_spkt->itraits[2].rename("pcode");
+    }
 
     auto meta_index = abc->metadatas.size();
     auto& metadata  = abc->metadatas.emplace_back(abc.get());
     metadata.name   = abc->cpool.strings.size();
     abc->cpool.strings.push_back("buffer");
-
-    varint_reader->rename("VarIntReader");
-    varint_reader->itraits[0].rename("buffer");
-    varint_reader->itraits[0].metadatas.push_back(meta_index);
+    if (base_cpkt != nullptr) {
+        set_class_ns(*base_cpkt, ns.pkt);
+        base_cpkt->rename("CPacketBase");
+        base_cpkt->itraits[0].rename("pcode0");
+        base_cpkt->itraits[1].rename("pcode1");
+        base_cpkt->itraits[2].rename("buffer");
+        base_cpkt->itraits[2].metadatas.push_back(meta_index);
+    }
+    if (varint_reader != nullptr) {
+        set_class_ns(*varint_reader, ns.pkt);
+        varint_reader->rename("VarIntReader");
+        varint_reader->itraits[0].rename("buffer");
+        varint_reader->itraits[0].metadatas.push_back(meta_index);
+    }
 
     rename_writeany();
     rename_readany();
     rename_interface_proxy();
 
-    base_cpkt->rename("CPacketBase");
-    base_cpkt->itraits[0].rename("pcode0");
-    base_cpkt->itraits[1].rename("pcode1");
-    base_cpkt->itraits[2].rename("buffer");
-    base_cpkt->itraits[2].metadatas.push_back(meta_index);
+    if (base_spkt != nullptr && base_cpkt != nullptr) {
+        auto spkt_name = base_spkt->get_name();
+        auto rpkt_name = base_cpkt->get_name();
 
-    auto spkt_name = base_spkt->get_name();
-    auto rpkt_name = base_cpkt->get_name();
+        auto clientbound_counter = 0;
+        for (auto& klass : abc->classes) {
+            if (klass.super_name == 0)
+                continue;
 
-    auto clientbound_counter = 0;
-    for (auto& klass : abc->classes) {
-        if (klass.super_name == 0)
-            continue;
+            auto super_name = klass.get_super_name();
+            if (super_name == spkt_name) {
+                Parser parser(abc->methods[klass.iinit]);
+                uint32_t pcode = 0;
 
-        auto super_name = klass.get_super_name();
-        if (super_name == spkt_name) {
-            Parser parser(abc->methods[klass.iinit]);
-            uint32_t pcode = 0;
+                auto ins = parser.begin;
+                // Find the Packet's code
+                while (ins && ins->opcode != OP::constructsuper) {
+                    if (ins->opcode == OP::pushdouble)
+                        pcode
+                            = pcode << 8 | static_cast<uint32_t>(abc->cpool.doubles[ins->args[0]]);
 
-            auto ins = parser.begin;
-            // Find the Packet's code
-            while (ins && ins->opcode != OP::constructsuper) {
-                if (ins->opcode == OP::pushdouble)
-                    pcode = pcode << 8 | static_cast<uint32_t>(abc->cpool.doubles[ins->args[0]]);
+                    ins = ins->next;
+                }
+                klass.rename(fmt.serverbound_packet.format(
+                    pcode >> 8, pcode & 0xff, get_known_name(pktnames.serverbound, pcode)));
 
-                ins = ins->next;
+                set_class_ns(klass, ns.spkt);
+            } else if (super_name == rpkt_name) {
+                klass.rename(fmt.unknown_clientbound_packet.format(++clientbound_counter));
+                set_class_ns(klass, ns.cpkt);
             }
-            klass.rename(fmt.serverbound_packet.format(
-                pcode >> 8, pcode & 0xff, get_known_name(pktnames.serverbound, pcode)));
-
-            set_class_ns(klass, ns.spkt);
-        } else if (super_name == rpkt_name) {
-            klass.rename(fmt.unknown_clientbound_packet.format(++clientbound_counter));
-            set_class_ns(klass, ns.cpkt);
         }
     }
 
@@ -413,6 +418,9 @@ std::string detfm::get_known_name(json& lookup, uint16_t code) {
 }
 
 void detfm::find_clientbound_packets() {
+    if (pkt_hdlr == nullptr)
+        return;
+
     const auto predicate = [this](auto& t) { return match_packet_handler(t); };
     const auto trait = std::find_if(pkt_hdlr->ctraits.begin(), pkt_hdlr->ctraits.end(), predicate);
     auto& method     = abc->methods[trait->index];
@@ -914,6 +922,9 @@ bool detfm::is_buffer_trait(abc::Trait& trait) {
 }
 
 void detfm::rename_writeany() {
+    if (base_spkt == nullptr)
+        return;
+
     for (auto& trait : base_spkt->itraits) {
         if (trait.kind == swf::abc::TraitKind::Method) {
             auto& method = abc->methods[trait.index];
@@ -960,6 +971,9 @@ void detfm::rename_writeany() {
 }
 
 void detfm::rename_readany() {
+    if (varint_reader == nullptr)
+        return;
+
     bool read_varint = false;
     for (auto& trait : varint_reader->itraits) {
         if (trait.kind != swf::abc::TraitKind::Method)

@@ -51,7 +51,7 @@ public:
     detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger);
 
     /* Find classes needed to unscrumble the code */
-    void analyze();
+    std::vector<std::string> analyze();
     /* Simplify expressions inside the classes' init method */
     void simplify_init();
     /* Unscramble bytecode by removing useless wrapper methods and resolving static slots */
