@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-constexpr const char* version = "0.3.3";
+constexpr const char* version = "0.3.4";
 
 using json = nlohmann::json;
 using swf::abc::parser::Instruction;
@@ -33,8 +33,8 @@ public:
     abc::Class* base_cpkt = nullptr; // Base clientbound packet
     abc::Class* pkt_hdlr  = nullptr;
 
-    abc::Class* varint_reader     = nullptr;
-    abc::Class* interface_proxy   = nullptr;
+    abc::Class* varint_reader   = nullptr;
+    abc::Class* interface_proxy = nullptr;
 
     std::unique_ptr<WrapClass> wrap_class;
     StaticClasses static_classes;
