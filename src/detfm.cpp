@@ -65,19 +65,26 @@ void detfm::analyze() {
         }
     }
 
+    std::list<std::pair<abc::Class**, std::function<bool(abc::Class & klass)>>> to_find = {
+        { &base_spkt, [this](abc::Class& cls) { return match_serverbound_pkt(cls); } },
+        { &base_cpkt, [this](abc::Class& cls) { return match_clientbound_pkt(cls); } },
+        { &pkt_hdlr, [this](abc::Class& cls) { return match_packet_handler(cls); } },
+        { &varint_reader, [this](abc::Class& cls) { return match_varint_reader(cls); } },
+        { &interface_proxy, [this](abc::Class& cls) { return match_interface_proxy(cls); } },
+    };
     for (auto& klass : abc->classes) {
-        if (match_serverbound_pkt(klass)) {
-            base_spkt = &klass;
-        } else if (match_clientbound_pkt(klass)) {
-            base_cpkt = &klass;
-        } else if (match_wrap_class(klass)) {
+        if (match_wrap_class(klass)) {
             wrap_class = std::make_unique<WrapClass>(klass);
         } else if (match_slot_class(klass)) {
             static_classes.classes.try_emplace(klass.name, abc, klass);
-        } else if (match_packet_handler(klass)) {
-            pkt_hdlr = &klass;
-        } else if (match_varint_reader(klass)) {
-            varint_reader = &klass;
+        } else {
+            for (auto it = to_find.begin(); it != to_find.end(); ++it) {
+                if (it->second(klass)) {
+                    *it->first = &klass;
+                    to_find.erase(it);
+                    break;
+                }
+            }
         }
     }
 
@@ -85,23 +92,21 @@ void detfm::analyze() {
     if (ByteArray == 0)
         missings.push_back("ByteArray Multiname");
 
-    if (base_spkt == nullptr)
-        missings.push_back("Serverbound Base Packet");
-
-    if (base_cpkt == nullptr)
-        missings.push_back("Clientbound Base Packet");
-
     if (wrap_class == nullptr)
         missings.push_back("Wrapper Class");
 
-    if (pkt_hdlr == nullptr)
-        missings.push_back("Packet Handler Class");
-
-    if (varint_reader == nullptr)
-        missings.push_back("VarInt Reader Class");
-
     if (static_classes.classes.empty())
         missings.push_back("Static Classes");
+
+    std::vector<std::pair<abc::Class*, std::string>> classes = {
+        { base_spkt, "Serverbound Base Packet" },
+        { base_cpkt, "Clientbound Base Packet" },
+        { pkt_hdlr, "Packet Handler Class" },
+        { varint_reader, "VarInt Reader Class" },
+    };
+    for (auto& [value, message] : classes)
+        if (value == nullptr)
+            missings.push_back(message);
 
     if (!missings.empty())
         throw std::runtime_error(fmt::format("Some classes are missing: {}", missings));
@@ -315,6 +320,7 @@ void detfm::rename() {
 
     rename_writeany();
     rename_readany();
+    rename_interface_proxy();
 
     base_cpkt->rename("CPacketBase");
     base_cpkt->itraits[0].rename("pcode0");
@@ -871,6 +877,16 @@ bool detfm::match_varint_reader(abc::Class& klass) {
 
     return true;
 }
+bool detfm::match_interface_proxy(abc::Class& klass) {
+    if (interface_proxy != nullptr)
+        return false;
+
+    if (!klass.ctraits.empty() || !klass.itraits.empty() || klass.protected_ns == 0)
+        return false;
+
+    auto& ctor = abc->methods[klass.iinit];
+    return ctor.params.size() == 1 && ctor.params[0] == abc->classes[0].name;
+}
 bool detfm::match_packet_handler(abc::Class& klass) {
     if (!klass.itraits.empty())
         return false;
@@ -974,6 +990,34 @@ void detfm::rename_readany() {
         } else if (!read_varint) {
             read_varint = true;
             trait.rename("readVarInt");
+        }
+    }
+}
+
+void detfm::rename_interface_proxy() {
+    if (interface_proxy == nullptr)
+        return;
+
+    interface_proxy->rename("InterfaceProxy");
+    auto& ctor = abc->methods[interface_proxy->iinit];
+    Parser parser(ctor);
+
+    auto ins = parser.begin;
+    while (ins) {
+        if (!skip_to_opcode(ins, OP::pushstring))
+            break;
+
+        auto key = ins->args[0];
+        if (!skip_to_opcode(ins, OP::getproperty))
+            break;
+
+        auto& mn  = abc->cpool.multinames[ins->args[0]];
+        auto name = abc->str(mn);
+        for (auto& prefix : { "method_", "name_", "const_" }) {
+            if (name.rfind(prefix, 0) == 0) {
+                mn.set_name_index(key);
+                break;
+            }
         }
     }
 }
