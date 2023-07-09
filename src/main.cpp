@@ -25,6 +25,7 @@
 #include <swf/swf.hpp>
 #include <thread>
 #include <unordered_map>
+#include <unpacker.hpp>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -32,6 +33,7 @@
 using namespace swf::abc::parser;
 using namespace athes::detfm;
 using namespace fmt::literals;
+using athes::unpack::Unpacker;
 namespace arg   = argparse;
 namespace fs    = std::filesystem;
 namespace utils = athes::utils;
@@ -96,8 +98,7 @@ auto arg_choices(std::vector<std::string> choices, std::string error_message = "
 int main(int argc, char const* argv[]) {
     int verbosity = 0;
     arg::ArgumentParser program("detfm", version, arg::default_arguments::help);
-    program.add_description(
-        "Deobfuscate Transformice SWF file.");
+    program.add_description("Deobfuscate Transformice SWF file.");
     program.add_argument("-V", "--version")
         .action([](const auto&) {
             std::cout << version << std::endl;
@@ -130,12 +131,19 @@ int main(int argc, char const* argv[]) {
         .help("Ignore missing classes and proceed anyway. It will likely crash.")
         .default_value(false)
         .implicit_value(true);
+    program.add_argument("--no-unpack")
+        .help("Don't unpack the swf file before deobfuscating.")
+        .default_value(false)
+        .implicit_value(true);
     program.add_argument("-C", "--compression")
         .help(
             "Set the compression algorithm for the ouput file. Possible values: none, zlib, lzma.")
         .default_value(std::string("none"))
         .action(arg_choices({ "none", "zlib", "lzma" }, "Invalid compression algorithm."));
-    program.add_argument("input").help("The file to deobfuscate.").required();
+    program.add_argument("-i")
+        .help(
+            "The file url to deobfuscate. Can be a file from the filesystem or an url to download.")
+        .default_value(std::string { "https://www.transformice.com/Transformice.swf" });
     program.add_argument("output").help("The ouput file.").required();
 
     try {
@@ -152,15 +160,17 @@ int main(int argc, char const* argv[]) {
     */
     logger.level = utils::LogLevel(std::max(3 - verbosity, 1) * 10);
 
-    const auto input       = program.get("input");
+    const auto input       = program.get("-i");
     const auto output      = program.get("output");
     const auto config      = program.get("--config");
     const auto dump_config = program.get("--dump-config");
     const auto compression = program.get("--compression");
     const auto jobs        = get_jobs(program.get<uint32_t>("--jobs"));
+    const bool is_url      = input.substr(0, 7) == "http://" || input.substr(0, 8) == "https://";
 
     utils::TimePoints tps = { { "start", utils::now() } };
     std::unique_ptr<swf::StreamReader> stream;
+    std::unique_ptr<Unpacker> unp;
     std::vector<uint8_t> buffer;
 
     Fmt fmt;
@@ -175,9 +185,12 @@ int main(int argc, char const* argv[]) {
         file << Fmt::to_json().dump(4);
     }
 
-    logger.info("Reading file '{}'. ", input);
+    auto action = fmt::format("{} file", is_url ? "Downloading" : "Reading");
+    logger.info("{} {}. ", action, input);
     try {
-        if (input == "-") {
+        if (is_url) {
+            unp = std::make_unique<Unpacker>(input);
+        } else if (input == "-") {
             utils::read_from_stdin(buffer);
             stream = std::make_unique<swf::StreamReader>(buffer);
         } else {
@@ -188,16 +201,28 @@ int main(int argc, char const* argv[]) {
         return 2;
     }
 
-    logger.log_done(tps, "Reading file");
-    logger.debug(
-        "File size: {}\n",
-        utils::fmt_unit({ "B", "kB", "MB", "GB" }, static_cast<double>(stream->size())));
-    logger.info("Parsing file. ");
+    const auto file_size = static_cast<double>(unp ? unp->size() : stream->size());
+    logger.log_done(tps, action);
+    logger.debug("File size: {}\n", utils::fmt_unit({ "B", "kB", "MB", "GB" }, file_size));
 
     swf::Swf movie;
-    movie.read(*stream);
+    if (!program.get<bool>("--no-unpack")) {
+        if (unp == nullptr)
+            unp = std::make_unique<Unpacker>(std::move(stream));
 
-    logger.log_done(tps, "Parsing file");
+        logger.info("Unpacking. ");
+        if (!unp->unpack(movie, stream)) {
+            logger.log_done(tps, "Unpacking");
+            logger.error("Unable to unpack this swf. Is it already unpacked?\n");
+        } else {
+            logger.log_done(tps, "Unpacking");
+        }
+    }
+    if (movie.file_length == 0) {
+        logger.info("Parsing file. ");
+        movie.read(*stream);
+        logger.log_done(tps, "Parsing file");
+    }
 
     auto frame1 = movie.abcfiles.find("frame1");
     if (frame1 == movie.abcfiles.end()) {

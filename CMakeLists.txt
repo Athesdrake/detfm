@@ -29,6 +29,7 @@ if(SWFLIB_STATIC)
   find_package(LibLZMA REQUIRED)
 endif()
 find_package(swflib CONFIG REQUIRED)
+find_package(athes_unpack CONFIG REQUIRED)
 
 # Add resources
 cmrc_add_resource_library(
@@ -41,8 +42,14 @@ cmrc_add_resource_library(
 
 # Link dependencies
 target_link_libraries(
-  detfm PRIVATE argparse::argparse fmt::fmt nlohmann_json::nlohmann_json
-                yaml-cpp Threads::Threads rc::packets)
+  detfm
+  PRIVATE argparse::argparse
+          athes::unpack
+          fmt::fmt
+          nlohmann_json::nlohmann_json
+          rc::packets
+          Threads::Threads
+          yaml-cpp)
 
 if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.4)
   target_link_libraries(detfm PRIVATE stdc++fs)
