@@ -1,6 +1,6 @@
 #include "match/traits/MethodTraitMatcher.hpp"
 
-namespace match {
+namespace athes::detfm::match {
 MethodTraitMatcher::MethodTraitMatcher() : TraitMatcher() { }
 
 MatchResult MethodTraitMatcher::match_value(std::shared_ptr<abc::AbcFile>& abc, abc::Trait& trait) {

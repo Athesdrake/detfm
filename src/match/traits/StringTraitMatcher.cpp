@@ -2,7 +2,7 @@
 #include "match/MultinameMatcher.hpp"
 #include <vector>
 
-namespace match {
+namespace athes::detfm::match {
 StringTraitMatcher::StringTraitMatcher() : TraitMatcher() { }
 
 MatchResult StringTraitMatcher::match_value(std::shared_ptr<abc::AbcFile>& abc, abc::Trait& trait) {

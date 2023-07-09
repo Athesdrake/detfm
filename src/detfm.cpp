@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <utility>
 
+namespace athes::detfm {
 static const std::vector<OP> new_class_seq = {
     OP::findpropstrict,
     OP::getlocal1,
@@ -926,7 +927,7 @@ void detfm::rename_writeany() {
         return;
 
     for (auto& trait : base_spkt->itraits) {
-        if (trait.kind == swf::abc::TraitKind::Method) {
+        if (trait.kind == abc::TraitKind::Method) {
             auto& method = abc->methods[trait.index];
             if (method.max_stack == method.local_count && method.max_stack <= 2
                 && method.init_scope_depth == method.max_scope_depth - 1
@@ -976,7 +977,7 @@ void detfm::rename_readany() {
 
     bool read_varint = false;
     for (auto& trait : varint_reader->itraits) {
-        if (trait.kind != swf::abc::TraitKind::Method)
+        if (trait.kind != abc::TraitKind::Method)
             continue;
 
         auto& method = abc->methods[trait.index];
@@ -1057,4 +1058,5 @@ uint32_t detfm::create_package(std::string name) {
     ns.name    = (uint32_t)abc->cpool.strings.size();
     abc->cpool.strings.push_back(name);
     return static_cast<uint32_t>(index);
+}
 }

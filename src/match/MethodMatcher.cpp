@@ -5,7 +5,7 @@
     if ((result &= value) == MatchResult::nomatch)                                                 \
         return result;
 
-namespace match {
+namespace athes::detfm::match {
 MethodMatcher::MethodMatcher() { }
 
 MatchResult MethodMatcher::match(std::shared_ptr<abc::AbcFile>& abc, uint32_t index) {

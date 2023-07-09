@@ -12,7 +12,7 @@
 
 using namespace fmt::literals;
 
-namespace utils {
+namespace athes::utils {
 TimePoint now() { return Clock::now(); }
 double elapsled(TimePoint start, TimePoint stop) {
     std::chrono::duration<double, std::micro> dt = stop - start;

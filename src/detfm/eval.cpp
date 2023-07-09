@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <vector>
 
+namespace athes::detfm {
 namespace abc = swf::abc;
 using namespace abc::parser;
 
@@ -67,3 +68,4 @@ template <typename T> T eval_method(std::shared_ptr<abc::AbcFile>& abc, abc::Met
 
 template int eval_method<int>(std::shared_ptr<abc::AbcFile>& abc, abc::Method& method);
 template double eval_method<double>(std::shared_ptr<abc::AbcFile>& abc, abc::Method& method);
+}

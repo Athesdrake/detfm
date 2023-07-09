@@ -30,9 +30,11 @@
 #include <vector>
 
 using namespace swf::abc::parser;
+using namespace athes::detfm;
 using namespace fmt::literals;
-namespace arg = argparse;
-namespace fs  = std::filesystem;
+namespace arg   = argparse;
+namespace fs    = std::filesystem;
+namespace utils = athes::utils;
 
 static utils::Logger logger;
 
@@ -95,7 +97,7 @@ int main(int argc, char const* argv[]) {
     int verbosity = 0;
     arg::ArgumentParser program("detfm", version, arg::default_arguments::help);
     program.add_description(
-        "Deobfuscate Transformice SWF file. The file needs to be unpacked first.");
+        "Deobfuscate Transformice SWF file.");
     program.add_argument("-V", "--version")
         .action([](const auto&) {
             std::cout << version << std::endl;

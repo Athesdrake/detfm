@@ -4,6 +4,7 @@
 #include <fmt/core.h>
 #include <stdexcept>
 
+namespace athes::detfm {
 StaticClass::StaticClass() { }
 StaticClass::StaticClass(std::shared_ptr<abc::AbcFile>& abc, abc::Class& klass) : klass(&klass) {
     std::unordered_map<uint32_t, abc::Trait*> notdefined;
@@ -64,3 +65,4 @@ bool StaticClass::is_method(std::shared_ptr<Instruction>& ins) {
 
 StaticClass& StaticClasses::operator[](uint32_t index) { return classes[index]; }
 bool StaticClasses::is_static_class(uint32_t klass) { return classes.find(klass) != classes.end(); }
+}

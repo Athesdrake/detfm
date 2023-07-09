@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <variant>
 
+namespace athes::detfm {
 using namespace swf::abc::parser;
 namespace abc = swf::abc;
 
@@ -30,3 +31,4 @@ public:
     StaticClass& operator[](uint32_t index);
     bool is_static_class(uint32_t klass);
 };
+}

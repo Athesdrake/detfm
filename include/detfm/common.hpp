@@ -4,4 +4,6 @@
 #include <memory>
 #include <string>
 
+namespace athes::detfm {
 namespace abc = swf::abc;
+}

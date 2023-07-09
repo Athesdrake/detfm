@@ -8,6 +8,7 @@
 #include <string>
 #include <string_view>
 
+namespace athes::detfm {
 namespace abc = swf::abc;
 using json    = nlohmann::json;
 
@@ -93,3 +94,4 @@ private:
         int methods   = 0;
     } counters;
 };
+}

@@ -1,6 +1,6 @@
 #include "match/Action.hpp"
 
-namespace match {
+namespace athes::detfm::match {
 std::shared_ptr<ActionRename> ActionRename::create(YAML::Node node) {
     if (node && node.IsMap() && node["rename"] && node["rename"].IsScalar())
         return std::make_shared<ActionRename>(node["rename"].as<std::string>());

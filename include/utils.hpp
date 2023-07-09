@@ -9,7 +9,7 @@
 #include <string_view>
 #include <vector>
 
-namespace utils {
+namespace athes::utils {
 using Clock      = std::chrono::high_resolution_clock;
 using TimePoint  = typename Clock::time_point;
 using TimePoints = typename std::vector<std::pair<std::string, utils::TimePoint>>;

@@ -16,13 +16,14 @@
 #include <unordered_map>
 #include <vector>
 
+CMRC_DECLARE(pktnames);
+
+namespace athes::detfm {
 constexpr const char* version = "0.3.5";
 
 using json = nlohmann::json;
 using swf::abc::parser::Instruction;
 namespace abc = swf::abc;
-
-CMRC_DECLARE(pktnames);
 
 class detfm {
     using MethodIterator = std::vector<abc::Method>::iterator;
@@ -120,3 +121,4 @@ private:
         uint32_t slot;
     } ns;
 };
+}

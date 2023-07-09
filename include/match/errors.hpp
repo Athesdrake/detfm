@@ -2,7 +2,7 @@
 #include <string>
 #include <yaml-cpp/yaml.h>
 
-namespace match {
+namespace athes::detfm::match {
 
 class ParserError : public std::exception {
 public:

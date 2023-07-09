@@ -13,6 +13,7 @@
 #include <variant>
 #include <vector>
 
+namespace athes::detfm {
 namespace abc = swf::abc;
 using namespace abc::parser;
 
@@ -309,4 +310,5 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
             method.exceptions[i].target = exceptions[i].target->addr;
         }
     }
+}
 }

@@ -2,6 +2,7 @@
 #include <abc/parser/Instruction.hpp>
 #include <abc/parser/Parser.hpp>
 
+namespace athes::detfm {
 OpInfo::OpInfo(std::shared_ptr<Instruction> ins) : ins(ins), addr(ins->addr) { }
 bool OpInfo::removed() { return ins->next == nullptr; }
 void OpInfo::remove(Parser& parser, OpRegister& reg) {
@@ -64,4 +65,5 @@ void ErrorInfo::replace(std::shared_ptr<OpInfo>& opinfo, const ErrorField& field
         target = opinfo;
         break;
     }
+}
 }

@@ -15,7 +15,7 @@
     if ((result &= value) == MatchResult::nomatch)                                                 \
         return result;
 
-namespace match {
+namespace athes::detfm::match {
 
 ClassMatcher::ClassMatcher() { }
 

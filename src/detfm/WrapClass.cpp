@@ -1,5 +1,6 @@
 #include "detfm/WrapClass.hpp"
 
+namespace athes::detfm {
 using abc::parser::OP;
 
 WrapClass::WrapClass(abc::Class& klass) : klass(&klass) {
@@ -20,4 +21,5 @@ bool WrapClass::is_wrap(std::shared_ptr<Instruction>& ins) {
 bool WrapClass::operator==(uint32_t& name) { return name == klass->name; }
 bool operator==(uint32_t& name, std::unique_ptr<WrapClass>& klass) {
     return klass->operator==(name);
+}
 }

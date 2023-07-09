@@ -6,7 +6,7 @@
 #include <abc/AbcFile.hpp>
 #include <memory>
 
-namespace match {
+namespace athes::detfm::match {
 namespace abc = swf::abc;
 
 class MethodTraitMatcher : public TraitMatcher {

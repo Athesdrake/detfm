@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
+namespace athes::detfm {
 using namespace fmt::literals;
 
 std::optional<std::string> check_format(std::string const& format, fmt::format_args args) {
@@ -137,13 +138,13 @@ void Renamer::rename(abc::Class& klass) {
 void Renamer::rename(abc::Trait& trait) {
     if (trait.name != 0 && invalid(trait.get_name())) {
         switch (trait.kind) {
-        case swf::abc::TraitKind::Const:
+        case abc::TraitKind::Const:
             trait.rename(fmt.consts.format(++counters.consts));
             break;
-        case swf::abc::TraitKind::Method:
+        case abc::TraitKind::Method:
             trait.rename(fmt.methods.format(++counters.methods));
             break;
-        case swf::abc::TraitKind::Function:
+        case abc::TraitKind::Function:
             trait.rename(fmt.functions.format(++counters.functions));
             break;
         default:
@@ -174,4 +175,5 @@ void Renamer::rename(abc::Exception& err, int counter) {
         auto name = fmt.errors.format(counter);
         err.rename_var_name(name);
     }
+}
 }

@@ -1,7 +1,7 @@
 #include "match/errors.hpp"
 #include <fmt/core.h>
 
-namespace match {
+namespace athes::detfm::match {
 
 ParserError::ParserError(std::string message, std::string filename, YAML::Mark mark)
     : message(message), filename(filename), mark(mark) { }

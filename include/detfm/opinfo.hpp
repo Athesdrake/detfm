@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+namespace athes::detfm {
 using namespace swf::abc::parser;
 namespace abc = swf::abc;
 
@@ -34,12 +35,13 @@ public:
 
 class ErrorInfo {
 public:
-    swf::abc::Exception err;
+    abc::Exception err;
 
     std::shared_ptr<OpInfo> from   = nullptr;
     std::shared_ptr<OpInfo> to     = nullptr;
     std::shared_ptr<OpInfo> target = nullptr;
-    ErrorInfo(swf::abc::Exception& err, OpRegister& reg);
+    ErrorInfo(abc::Exception& err, OpRegister& reg);
 
     void replace(std::shared_ptr<OpInfo>& opinfo, const ErrorField& field);
 };
+}

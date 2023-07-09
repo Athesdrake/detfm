@@ -1,6 +1,6 @@
 #pragma once
 
-namespace match {
+namespace athes::detfm::match {
 class MatchResult {
 public:
     enum class Result { match, nomatch, skip };

@@ -1,6 +1,6 @@
 #include "match/NumberMatcher.hpp"
 
-namespace match {
+namespace athes::detfm::match {
 NumberMatcher::NumberMatcher() { }
 NumberMatcher::NumberMatcher(int64_t value) : NumberMatcher(NumberOpType::eq, value) { }
 NumberMatcher::NumberMatcher(NumberOpType optype, int64_t value, bool negate)

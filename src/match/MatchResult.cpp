@@ -1,6 +1,6 @@
 #include "match/MatchResult.hpp"
 
-namespace match {
+namespace athes::detfm::match {
 const MatchResult MatchResult::match   = Result::match;
 const MatchResult MatchResult::nomatch = Result::nomatch;
 const MatchResult MatchResult::skip    = Result::skip;

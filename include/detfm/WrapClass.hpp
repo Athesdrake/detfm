@@ -5,6 +5,7 @@
 #include <memory>
 #include <set>
 
+namespace athes::detfm {
 using swf::abc::parser::Instruction;
 namespace abc = swf::abc;
 
@@ -22,3 +23,4 @@ public:
     bool is_wrap(std::shared_ptr<Instruction>& ins);
 };
 bool operator==(uint32_t& name, std::unique_ptr<WrapClass>& klass);
+}

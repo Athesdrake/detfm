@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace match {
+namespace athes::detfm::match {
 MultinameMatcher::MultinameMatcher() { }
 MultinameMatcher::MultinameMatcher(uint32_t value) : enabled(true), value(value) { }
 MultinameMatcher::MultinameMatcher(std::string const& value) : enabled(true), value(value) { }

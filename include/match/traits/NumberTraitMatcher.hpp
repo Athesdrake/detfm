@@ -7,7 +7,7 @@
 #include <string>
 #include <yaml-cpp/yaml.h>
 
-namespace match {
+namespace athes::detfm::match {
 namespace abc = swf::abc;
 
 class NumberTraitMatcher : public TraitMatcher {
