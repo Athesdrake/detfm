@@ -27,7 +27,11 @@ template <typename... Types> struct StringFmt : public StringFmtBase {
     using StringFmtBase::StringFmtBase;
 
     std::optional<std::string> valid(std::string const& format) const override {
-        return check_format(format, fmt::make_format_args(Types()...));
+        const auto default_args = std::tuple { Types()... };
+
+        return std::apply(
+            [&](auto&... args) { return check_format(format, fmt::make_format_args(args...)); },
+            default_args);
     }
 
     std::string format(Types... args) { return fmt::format(value, args...); }
