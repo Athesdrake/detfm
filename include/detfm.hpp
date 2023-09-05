@@ -19,7 +19,7 @@
 CMRC_DECLARE(pktnames);
 
 namespace athes::detfm {
-constexpr const char* version = "0.3.5";
+constexpr const char* version = "0.4.0";
 
 using json = nlohmann::json;
 using swf::abc::parser::Instruction;
