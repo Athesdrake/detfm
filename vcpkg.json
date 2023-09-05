@@ -7,17 +7,9 @@
     "dependencies": [
         "argparse",
         "cmakerc",
+        "cpr",
         "fmt",
         "nlohmann-json",
         "yaml-cpp"
-    ],
-    "features": {
-        "static": {
-            "description": "Use swflib-static",
-            "dependencies": [
-                "zlib",
-                "liblzma"
-            ]
-        }
-    }
+    ]
 }
