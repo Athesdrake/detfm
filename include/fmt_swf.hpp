@@ -23,3 +23,13 @@ template <> struct fmt::formatter<swf::DoABCTag> {
             "lazy"_a = fmt::styled(tag.is_lazy, fmt::fg(fmt::color::navy) | fmt::emphasis::italic));
     }
 };
+
+template <> struct fmt::formatter<std::optional<std::string>> : fmt::formatter<string_view> {
+    template <typename FormatContext>
+    auto format(std::optional<std::string>& maybe_str, FormatContext& ctx) -> decltype(ctx.out()) {
+        if (maybe_str.has_value()) {
+            return format_to(ctx.out(), "Some(\"{}\")", *maybe_str);
+        }
+        return format_to(ctx.out(), "None");
+    }
+};

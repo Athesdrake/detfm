@@ -1038,6 +1038,29 @@ void detfm::rename_interface_proxy() {
     }
 }
 
+std::optional<std::string> detfm::proxy2localhost(std::string port) {
+    for (auto& string : abc->cpool.strings) {
+        // min size should be: 0.0.0.0:0-0
+        if (string.size() < 11)
+            continue;
+
+        std::string specials = ".:-";
+        std::vector<char> not_digits;
+        std::copy_if(string.begin(), string.end(), std::back_inserter(not_digits), [](auto& c) {
+            return !std::isdigit(c);
+        });
+        // The only special characters should be .:-
+        if (!std::includes(not_digits.begin(), not_digits.end(), specials.begin(), specials.end())
+            // and we should also have digits
+            || string.size() <= not_digits.size())
+            continue;
+
+        string = "127.0.0.1:" + port;
+        return string;
+    }
+    return {};
+}
+
 void detfm::set_class_ns(abc::Class& klass, uint32_t& ns) {
     if (ns == 0)
         throw std::runtime_error("Cannot rename class' namespace to null.");

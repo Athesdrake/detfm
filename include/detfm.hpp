@@ -62,6 +62,9 @@ public:
     /* Rename Classes to make it easier to read */
     void rename();
 
+    /* Change the server's ip to localhost */
+    std::optional<std::string> proxy2localhost(std::string port = "11801");
+
     /* Find a packet's name from its code */
     std::string get_known_name(json& lookup, std::string code);
     std::string get_known_name(json& lookup, uint16_t code);

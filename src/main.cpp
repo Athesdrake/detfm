@@ -96,7 +96,8 @@ auto arg_choices(std::vector<std::string> choices, std::string error_message = "
 }
 
 int main(int argc, char const* argv[]) {
-    int verbosity = 0;
+    bool enable_proxy = false;
+    int verbosity     = 0;
     arg::ArgumentParser program("detfm", version, arg::default_arguments::help);
     program.add_description("Deobfuscate Transformice SWF file.");
     program.add_argument("-V", "--version")
@@ -144,6 +145,15 @@ int main(int argc, char const* argv[]) {
         .help(
             "The file url to deobfuscate. Can be a file from the filesystem or an url to download.")
         .default_value(std::string { "https://www.transformice.com/Transformice.swf" });
+    program.add_argument("-P", "--enable-proxy")
+        .help("Change the server's ip to localhost.")
+        .action([&enable_proxy](const auto& v) { enable_proxy = true; })
+        .default_value(false)
+        .implicit_value(true);
+    program.add_argument("-p", "--proxy-port")
+        .help("Change the server's port to the given value. Implies --enable-proxy")
+        .action([&enable_proxy](const auto& v) { enable_proxy = true; })
+        .default_value(std::string("11801"));
     program.add_argument("output").help("The ouput file.").required();
 
     try {
@@ -343,6 +353,11 @@ int main(int argc, char const* argv[]) {
     }
 
     logger.log_done(tps, "Matching user-defined classes");
+    if (enable_proxy) {
+        const auto port   = program.get<std::string>("proxy-port");
+        logger.info("Proxying to {}. ", detfm.proxy2localhost(port));
+        logger.log_done(tps, "Proxying");
+    }
     logger.info("Writing file. ");
 
     // disable compression by default to speed up the write routine
