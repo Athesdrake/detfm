@@ -239,14 +239,19 @@ int main(int argc, char const* argv[]) {
     // Rename the symbols to something more readable
     // In fact it's the fully qualified name of a class,
     // so we could rename the symbol using the class' name, but that's not really useful
+    uint32_t i = 0;
     for (auto& it : movie.symbol_class->symbols) {
         if (!Renamer::invalid(it.second))
             continue;
 
-        const auto pos  = it.second.find('_');
-        const auto name = it.second.substr(pos + 1);
-        if (!Renamer::invalid(name))
-            it.second = name;
+        auto pos  = it.second.find('_');
+        auto name = '$' + it.second.substr(pos + 1);
+        if (Renamer::invalid(name)) {
+            // Also rename invalid symbols
+            name = fmt.symbols.format(i++);
+        }
+        std::replace(cpool->strings.begin(), cpool->strings.end(), it.second, name);
+        it.second = name;
     }
 
     // Rename the first class as the Game class

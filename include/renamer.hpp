@@ -46,6 +46,7 @@ public:
     StringFmt<uint32_t> vars      = "var_{:03d}";
     StringFmt<uint32_t> methods   = "method_{:03d}";
     StringFmt<uint32_t> errors    = "error{:d}";
+    StringFmt<uint32_t> symbols   = "ClassSymbol_{:d}";
 
     StringFmt<uint8_t, uint8_t, std::string> clientbound_packet  = "CPacket{:02x}{:02x}{}";
     StringFmt<uint8_t, uint8_t, std::string> serverbound_packet  = "SPacket{:02x}{:02x}{}";
