@@ -104,6 +104,7 @@ private:
 
     void set_class_ns(abc::Class& klass, uint32_t& ns);
     uint32_t create_package(std::string name);
+    void create_missing_sets();
 
     utils::Logger logger;
     Fmt fmt;
@@ -120,5 +121,8 @@ private:
 
         uint32_t slot;
     } ns;
+
+    // Namespace sets we (might) have to create
+    std::unordered_map<uint32_t, uint32_t> ns_class_map;
 };
 }

@@ -44,7 +44,7 @@ bool skip_to_opcode(std::shared_ptr<Instruction>& ins, OP opcode) {
 }
 
 detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger)
-    : abc(abc), fmt(fmt), logger(logger) {
+    : abc(abc), fmt(fmt), logger(logger), ns_class_map() {
     std::unordered_map<std::string, json*> files = {
         { "clientbound.json", &pktnames.clientbound },
         { "serverbound.json", &pktnames.serverbound },
@@ -390,6 +390,7 @@ void detfm::rename() {
     }
 
     find_clientbound_packets();
+    create_missing_sets();
 }
 
 std::string detfm::get_known_name(json& lookup, std::string code) {
@@ -1046,6 +1047,9 @@ void detfm::set_class_ns(abc::Class& klass, uint32_t& ns) {
     case abc::MultinameKind::QName:
     case abc::MultinameKind::QNameA:
         mn.data.qname.ns = ns;
+        if (mn.data.qname.name != 0)
+            ns_class_map[mn.data.qname.name] = ns;
+
         break;
     default:
         break;
@@ -1058,5 +1062,40 @@ uint32_t detfm::create_package(std::string name) {
     ns.name    = (uint32_t)abc->cpool.strings.size();
     abc->cpool.strings.push_back(name);
     return static_cast<uint32_t>(index);
+}
+
+void detfm::create_missing_sets() {
+    std::unordered_map<uint32_t, uint32_t> ns_set_cache;
+
+    for (auto& mn : abc->cpool.multinames) {
+        switch (mn.kind) {
+        case abc::MultinameKind::QName:
+        case abc::MultinameKind::QNameA: {
+            const auto& it = ns_class_map.find(mn.data.qname.name);
+            if (it != ns_class_map.end()) {
+                mn.data.qname.ns = it->second;
+            }
+            break;
+        }
+        case abc::MultinameKind::Multiname: {
+            const auto& it = ns_class_map.find(mn.data.multiname.name);
+            if (it != ns_class_map.end()) {
+                // Also change the namespace on other multinames using the same name
+                auto cached_set = ns_set_cache.find(it->second);
+                bool use_cached = cached_set != ns_set_cache.end();
+                uint32_t ns_set = use_cached ? cached_set->second : abc->cpool.ns_sets.size();
+
+                if (!use_cached) {
+                    abc->cpool.ns_sets.push_back({ it->second });
+                    ns_set_cache[it->second] = ns_set;
+                }
+                mn.data.multiname.ns_set = ns_set;
+            }
+            break;
+        }
+        default:
+            break;
+        }
+    }
 }
 }
