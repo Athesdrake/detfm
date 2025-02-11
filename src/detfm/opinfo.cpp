@@ -3,14 +3,14 @@
 #include <abc/parser/Parser.hpp>
 
 namespace athes::detfm {
-OpInfo::OpInfo(std::shared_ptr<Instruction> ins) : ins(ins), addr(ins->addr) { }
+OpInfo::OpInfo(std::shared_ptr<Instruction> ins) : addr(ins->addr), ins(ins) { }
 bool OpInfo::removed() { return ins->next == nullptr; }
 void OpInfo::remove(Parser& parser, OpRegister& reg) {
     if (removed())
         return;
 
     for (auto& opinfo : jumpsHere) {
-        for (auto i = 0; i < opinfo->jumpsTo.size(); ++i) {
+        for (size_t i = 0; i < opinfo->jumpsTo.size(); ++i) {
             if (opinfo->jumpsTo[i].get() == this) {
                 opinfo->jumpsTo[i] = next;
                 break;

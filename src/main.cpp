@@ -75,7 +75,7 @@ void unscramble(detfm& detfm, std::shared_ptr<abc::AbcFile>& abc, uint32_t jobs)
 
     logger.info("Spawning {} threads.\n", jobs);
     std::vector<std::thread> threads;
-    for (int i = 0; i < jobs; ++i)
+    for (uint32_t i = 0; i < jobs; ++i)
         threads.emplace_back(task, std::ref(detfm), std::ref(abc), std::ref(indexes));
 
     for (auto& th : threads)

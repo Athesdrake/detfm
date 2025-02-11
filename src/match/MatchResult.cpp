@@ -14,8 +14,9 @@ const MatchResult& MatchResult::operator!() const {
         return nomatch;
     case Result::nomatch:
         return match;
+    default:
+        return skip;
     }
-    return skip;
 }
 const MatchResult& MatchResult::operator&&(const MatchResult& other) const {
     if (result == nomatch || (result == match && other.result == skip))

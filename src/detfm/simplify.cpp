@@ -142,7 +142,7 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
     // populate the instruction register
     auto ins  = parser.begin;
     auto prev = insreg[ins->addr] = std::make_shared<OpInfo>(ins);
-    while (ins = ins->next) {
+    while ((ins = ins->next) != nullptr) {
         insreg[ins->addr] = std::make_shared<OpInfo>(ins);
         prev = prev->next = insreg[ins->addr];
     }
@@ -288,7 +288,7 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
             auto opinfo = insreg[ins->addr];
 
             if (ins->isJump())
-                for (auto i = 0; i < ins->args.size(); ++i)
+                for (size_t i = 0; i < ins->args.size(); ++i)
                     ins->args[i] = opinfo->jumpsTo[i]->addr;
 
             ins = ins->next;
@@ -304,7 +304,7 @@ void simplify_expressions(std::shared_ptr<abc::AbcFile>& abc, abc::Method& metho
         method.code.insert(
             method.code.end(), stream.get_buffer(), stream.get_buffer() + stream.size());
 
-        for (auto i = 0; i < method.exceptions.size(); ++i) {
+        for (size_t i = 0; i < method.exceptions.size(); ++i) {
             method.exceptions[i].from   = exceptions[i].from->addr;
             method.exceptions[i].to     = exceptions[i].to->addr;
             method.exceptions[i].target = exceptions[i].target->addr;

@@ -15,7 +15,7 @@ bool MethodTraitMatcher::parse_value(YAML::Node& node) {
         slot_id = node["dispid"].as<int64_t>();
 
     int64_t attrs = 0;
-    bool negate;
+    bool negate = false;
     if (node["final"] && node["final"].IsScalar()) {
         negate = !node["final"].as<bool>(true);
         attrs  = 1;

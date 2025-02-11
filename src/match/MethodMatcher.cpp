@@ -71,7 +71,7 @@ MatchResult MethodMatcher::match_params(std::shared_ptr<abc::AbcFile>& abc, abc:
     if (matchers.size() != method.params.size())
         return MatchResult::nomatch;
 
-    for (auto i = 0; i < matchers.size(); ++i)
+    for (size_t i = 0; i < matchers.size(); ++i)
         if (matchers[i].match(abc, method.params[i]) == MatchResult::nomatch)
             return MatchResult::nomatch;
 

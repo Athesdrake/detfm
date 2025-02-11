@@ -44,7 +44,7 @@ bool skip_to_opcode(std::shared_ptr<Instruction>& ins, OP opcode) {
 }
 
 detfm::detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger)
-    : abc(abc), fmt(fmt), logger(logger), ns_class_map() { }
+    : logger(logger), fmt(fmt), abc(abc), ns_class_map() { }
 
 std::vector<std::string> detfm::analyze() {
     for (uint32_t i = 0; i < abc->cpool.multinames.size(); ++i) {
@@ -140,7 +140,7 @@ void detfm::unscramble(abc::Method& method) {
 
     // populate the instruction register
     auto prev = insreg[ins->addr] = std::make_shared<OpInfo>(ins);
-    while (ins = ins->next) {
+    while ((ins = ins->next) != nullptr) {
         insreg[ins->addr] = std::make_shared<OpInfo>(ins);
         prev = prev->next = insreg[ins->addr];
     }
@@ -258,7 +258,7 @@ void detfm::unscramble(abc::Method& method) {
             auto opinfo = insreg[ins->addr];
 
             if (ins->isJump())
-                for (auto i = 0; i < ins->args.size(); ++i)
+                for (size_t i = 0; i < ins->args.size(); ++i)
                     ins->args[i] = opinfo->jumpsTo[i]->addr;
 
             ins = ins->next;
@@ -274,7 +274,7 @@ void detfm::unscramble(abc::Method& method) {
         method.code.insert(
             method.code.end(), stream.get_buffer(), stream.get_buffer() + stream.size());
 
-        for (auto i = 0; i < method.exceptions.size(); ++i) {
+        for (size_t i = 0; i < method.exceptions.size(); ++i) {
             method.exceptions[i].from   = exceptions[i].from->addr;
             method.exceptions[i].to     = exceptions[i].to->addr;
             method.exceptions[i].target = exceptions[i].target->addr;
@@ -587,7 +587,7 @@ bool detfm::find_clientbound_tribulle(std::shared_ptr<Instruction> ins) {
     // found the magic method, we need to do the get_packet_code thing again!
     // but first let's rename the base packet
     auto& method = abc->methods[trait->index];
-    if (klass = find_class_by_name(method.return_type)) {
+    if ((klass = find_class_by_name(method.return_type)) != std::nullopt) {
         set_class_ns(*klass, ns.tpkt);
         klass->rename("TCPacketBase");
     }
@@ -617,7 +617,7 @@ bool detfm::find_clientbound_tribulle(std::shared_ptr<Instruction> ins) {
         set_class_ns(*klass, ns.tcpkt);
         klass->rename(fmt.tribulle_clientbound_packet.format(
             code, get_known_name(pktnames::tribulle_clientbound, code)));
-    } while (ins = ins->next);
+    } while ((ins = ins->next) != nullptr);
 
     return true;
 }
@@ -675,7 +675,7 @@ void detfm::find_serverbound_tribulle(abc::Class& klass) {
 
     // find the getlex's and the index used in the lookupswitch
     while (ins) {
-        uint32_t name;
+        uint32_t name = 0;
         if (skip_to_opcode(ins, OP::getlex))
             name = ins->args[0];
 
@@ -732,14 +732,13 @@ detfm::find_ctrait_by_name(abc::Class& klass, uint32_t& name, bool check_super) 
     // Check the prototype chain
     // TODO: unroll it to prevent any recursive issue?
     std::optional<abc::Class> super;
-    if (super = find_class_by_name(klass.super_name))
+    if ((super = find_class_by_name(klass.super_name)) != std::nullopt)
         return find_ctrait_by_name(*super, name);
 
     return {};
 }
 std::optional<abc::Trait>
 detfm::find_itrait_by_name(abc::Class& klass, uint32_t& name, bool check_super) {
-    auto& mn = abc->cpool.multinames[name];
     for (auto& trait : klass.itraits)
         if (trait.name == name)
             return trait;
@@ -750,7 +749,7 @@ detfm::find_itrait_by_name(abc::Class& klass, uint32_t& name, bool check_super) 
     // Check the prototype chain
     // TODO: unroll it to prevent any recursive issue?
     std::optional<abc::Class> super;
-    if (super = find_class_by_name(klass.super_name))
+    if ((super = find_class_by_name(klass.super_name)) != std::nullopt)
         return find_itrait_by_name(*super, name);
 
     return {};

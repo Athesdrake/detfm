@@ -4,7 +4,7 @@ namespace athes::detfm::match {
 NumberMatcher::NumberMatcher() { }
 NumberMatcher::NumberMatcher(int64_t value) : NumberMatcher(NumberOpType::eq, value) { }
 NumberMatcher::NumberMatcher(NumberOpType optype, int64_t value, bool negate)
-    : enabled(true), optype(optype), value(value), negate(negate) { }
+    : enabled(true), negate(negate), optype(optype), value(value) { }
 
 MatchResult NumberMatcher::match(int64_t value) {
     if (!enabled)
