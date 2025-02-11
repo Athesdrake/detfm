@@ -2,13 +2,12 @@ project(
     'detfm',
     'cpp',
     default_options: ['cpp_std=c++17'],
-    version: '0.5.0',
+    version: '0.5.1',
 )
 
 swflib = dependency('swflib')
 unpacker = dependency('unpack')
 argparse = dependency('argparse')
-cpr = dependency('cpr')
 fmt = dependency('fmt')
 json = dependency('nlohmann_json')
 
@@ -51,5 +50,5 @@ executable(
     sources,
     packets_hpp,
     include_directories: incdir,
-    dependencies: [swflib, unpacker, argparse, cpr, fmt, json, yaml_dep],
+    dependencies: [swflib, unpacker, argparse, fmt, json, yaml_dep],
 )

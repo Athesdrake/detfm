@@ -16,7 +16,7 @@
 #include <vector>
 
 namespace athes::detfm {
-constexpr const char* version = "0.5.0";
+constexpr const char* version = "0.5.1";
 
 using swf::abc::parser::Instruction;
 namespace abc = swf::abc;
