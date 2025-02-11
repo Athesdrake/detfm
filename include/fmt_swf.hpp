@@ -4,7 +4,7 @@
 #include <swf/swf.hpp>
 #include <swf/tags/DoABCTag.hpp>
 
-template <> struct fmt::formatter<swf::DoABCTag> {
+template <> struct fmt::formatter<swf::DoABCTag> : formatter<string_view> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
         auto it = ctx.begin();
         if (it != ctx.end() && *it != '}')
@@ -12,8 +12,7 @@ template <> struct fmt::formatter<swf::DoABCTag> {
         return it;
     }
 
-    template <typename FormatContext>
-    auto format(swf::DoABCTag& tag, FormatContext& ctx) -> decltype(ctx.out()) {
+    auto format(swf::DoABCTag& tag, format_context& ctx) const -> format_context::iterator {
         return format_to(
             ctx.out(),
             "[{tagname}:0x{tagid:02x}] \"{name}\" lazy:{lazy}",
@@ -21,15 +20,5 @@ template <> struct fmt::formatter<swf::DoABCTag> {
             "tagid"_a   = fmt::styled(uint8_t(tag.getId()), fmt::fg(fmt::color::purple)),
             "name"_a    = fmt::styled(tag.name, fmt::fg(fmt::color::olive_drab)),
             "lazy"_a = fmt::styled(tag.is_lazy, fmt::fg(fmt::color::navy) | fmt::emphasis::italic));
-    }
-};
-
-template <> struct fmt::formatter<std::optional<std::string>> : fmt::formatter<string_view> {
-    template <typename FormatContext>
-    auto format(std::optional<std::string>& maybe_str, FormatContext& ctx) -> decltype(ctx.out()) {
-        if (maybe_str.has_value()) {
-            return format_to(ctx.out(), "Some(\"{}\")", *maybe_str);
-        }
-        return format_to(ctx.out(), "None");
     }
 };

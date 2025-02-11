@@ -37,7 +37,7 @@ struct Logger {
 
     Logger(LogLevel level = LogLevel::NOTSET) : level(level) {
         if (level == LogLevel::NOTSET)
-            level == LogLevel::INFO;
+            level = LogLevel::INFO;
     }
 
     inline bool enabled_for(LogLevel lvl) { return level <= lvl; }

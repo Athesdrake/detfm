@@ -1,32 +1,29 @@
 #pragma once
 #include "detfm/StaticClass.hpp"
 #include "detfm/WrapClass.hpp"
+#include "packets.hpp"
 #include "renamer.hpp"
 #include "utils.hpp"
 #include <abc/parser/Parser.hpp>
 #include <abc/parser/opcodes.hpp>
-#include <cmrc/cmrc.hpp>
 #include <cstdint>
 #include <memory>
 #include <mutex>
-#include <nlohmann/json.hpp>
 #include <optional>
 #include <set>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-CMRC_DECLARE(pktnames);
-
 namespace athes::detfm {
 constexpr const char* version = "0.4.0";
 
-using json = nlohmann::json;
 using swf::abc::parser::Instruction;
 namespace abc = swf::abc;
 
 class detfm {
     using MethodIterator = std::vector<abc::Method>::iterator;
+    using PacketMap      = std::unordered_map<const char*, std::string>;
 
 public:
     uint32_t ByteArray    = 0;
@@ -39,15 +36,6 @@ public:
 
     std::unique_ptr<WrapClass> wrap_class;
     StaticClasses static_classes;
-
-    struct {
-        json clientbound;
-        json serverbound;
-        struct {
-            json clientbound;
-            json serverbound;
-        } tribulle;
-    } pktnames;
 
     detfm(std::shared_ptr<abc::AbcFile>& abc, Fmt fmt, utils::Logger logger);
 
@@ -66,8 +54,8 @@ public:
     std::optional<std::string> proxy2localhost(std::string port = "11801");
 
     /* Find a packet's name from its code */
-    std::string get_known_name(json& lookup, std::string code);
-    std::string get_known_name(json& lookup, uint16_t code);
+    std::string get_known_name(PacketMap const& lookup, std::string code);
+    std::string get_known_name(PacketMap const& lookup, uint16_t code);
 
 private:
     bool match_serverbound_pkt(abc::Class& klass);

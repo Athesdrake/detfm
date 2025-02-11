@@ -14,6 +14,8 @@
 #include <deque>
 #include <filesystem>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
+#include <fmt/std.h>
 #include <fstream>
 #include <functional>
 #include <list>
@@ -354,7 +356,7 @@ int main(int argc, char const* argv[]) {
 
     logger.log_done(tps, "Matching user-defined classes");
     if (enable_proxy) {
-        const auto port   = program.get<std::string>("proxy-port");
+        const auto port = program.get<std::string>("proxy-port");
         logger.info("Proxying to {}. ", detfm.proxy2localhost(port));
         logger.log_done(tps, "Proxying");
     }
