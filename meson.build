@@ -2,7 +2,7 @@ project(
     'detfm',
     'cpp',
     default_options: ['cpp_std=c++17'],
-    version: '0.4.0',
+    version: '0.5.0',
 )
 
 swflib = dependency('swflib')
