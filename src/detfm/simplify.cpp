@@ -3,6 +3,7 @@
 #include "detfm/opinfo.hpp"
 #include <abc/AbcFile.hpp>
 #include <abc/parser/Parser.hpp>
+#include <array>
 #include <cmath>
 #include <functional>
 #include <memory>
