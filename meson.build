@@ -5,8 +5,8 @@ project(
     version: '0.5.1',
 )
 
-swflib = dependency('swflib')
 unpacker = dependency('unpack')
+swflib = dependency('swflib')
 argparse = dependency('argparse')
 fmt = dependency('fmt')
 json = dependency('nlohmann_json')

@@ -1,7 +1,7 @@
 [wrap-git]
 url = https://github.com/Athesdrake/unpacker.git
-# 0.2.1
-revision = a3497e5b3b2c5e7c00ae9d5f13a13a13aaa95f99
+# 0.2.2
+revision = 5934cd5d400e95a0121de29f817cb2de0c65e2ca
 depth = 1
 
 [provide]

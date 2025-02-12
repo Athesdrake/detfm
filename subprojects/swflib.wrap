@@ -1,8 +1,0 @@
-[wrap-git]
-url = https://github.com/Athesdrake/swflib.git
-# 0.4.1
-revision = 1b09b31c4adfe4c938e983f8bf403be0fa7952fb
-depth = 1
-
-[provide]
-swflib = swflib_dep
