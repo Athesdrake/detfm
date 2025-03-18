@@ -1,5 +1,4 @@
-build/
-builddir/
+/target
 
 /subprojects/*
 !/subprojects/*.wrap

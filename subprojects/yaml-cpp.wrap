@@ -1,8 +1,0 @@
-[wrap-git]
-url = https://github.com/jbeder/yaml-cpp.git
-# tag 0.8.0
-revision = f7320141120f720aecc4c32be25586e7da9eb978
-depth = 1
-
-[provide]
-dependency_names = yaml-cpp

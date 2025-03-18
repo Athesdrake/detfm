@@ -1,0 +1,31 @@
+[package]
+name = "detfm"
+version = "1.0.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.release]
+debug = true
+
+[dependencies]
+rabc = { git = "https://github.com/Athesdrake/rabc.git", tag = "v0.2.2" }
+unpacker = { git = "https://github.com/Athesdrake/unpacker.git", branch = "rust-rewrite" }
+clap = { version = "4.5.32", features = ["derive"] }
+log = "0.4.26"
+stderrlog = "0.6.0"
+jzon = "0.12.5"
+thiserror = "2.0.12"
+anyhow = "1.0.97"
+itertools = "0.14.0"
+
+[workspace.lints.clippy]
+pedantic = { level = "warn", priority = -2 }
+# Allowed pedantic lints
+module_name_repetitions = "allow"
+missing_errors_doc = "allow"
+# Disallowed restriction lints
+or_fun_call = "warn"
+str_to_string = "warn"
+inconsistent_struct_constructor = "warn"
+print_stdout = "warn"
+print_stderr = "warn"
