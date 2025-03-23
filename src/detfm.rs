@@ -461,22 +461,7 @@ impl<'a> Detfm<'a> {
     }
 
     fn get_known_name(&self, side: &PktNames, pcode: u32) -> String {
-        assert!(pcode >> 8 != 0 || pcode == 0, "Invalid pcode: {pcode}");
-        PKT_NAMES
-            .get(side, pcode)
-            .map(|name| {
-                ['_']
-                    .into_iter()
-                    .chain(name.split(['_', ' ']).flat_map(|p| {
-                        let mut it = p.chars();
-                        it.next()
-                            .map(|c| c.to_ascii_uppercase())
-                            .into_iter()
-                            .chain(it.filter(|c| c.is_ascii_alphabetic()))
-                    }))
-                    .join("")
-            })
-            .unwrap_or_default()
+        PKT_NAMES.get(side, pcode).cloned().unwrap_or_default()
     }
     fn format_packet(&self, side: &PktNames, categ_id: u8, pkt_id: u8) -> String {
         let name = self.get_known_name(side, ((categ_id as u32) << 8) | pkt_id as u32);
