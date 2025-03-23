@@ -23,7 +23,7 @@
     "0052": "DemandeQuitterTribu",
     "0054": "DemandeCreerTribu",
     "0062": "ChangerMessageJour",
-    "0066": "ChangerCodeMaisonTFM",
+    "0066": "ChangeTribeHouseMap",
     "0068": "ExclureMembre",
     "006c": "OuvertureInterfaceTribu",
     "006e": "FermetureInterfaceTribu",
