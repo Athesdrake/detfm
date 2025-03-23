@@ -709,12 +709,15 @@ impl<'a> Detfm<'a> {
         // Get the class & method
         let name = p.property;
         let mut itrait = None;
-        while let Some(t) = self.find_itrait_by_name(klass, name, false) {
+        while itrait.is_none() {
+            itrait = self.find_itrait_by_name(klass, name, false);
+            if itrait.is_some() {
+                break;
+            }
             let Some(class) = self.find_class_by_name(self.abc.classes[klass].super_name) else {
                 return Ok(false);
             };
             klass = class.0;
-            itrait = Some(t);
         }
         let Some(Trait::Method(m)) = itrait else {
             return Ok(false);
