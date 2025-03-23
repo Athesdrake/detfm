@@ -93,7 +93,7 @@ impl StaticClass {
             .unwrap();
         let mut prog = instructions.iter_prog();
         while prog.has_next() {
-            let Some(Op::FindProperty(prop)) = prog.skip_until_op(OpCode::FindProperty) else {
+            let Some(Op::FindProperty(prop)) = prog.skip_until_op(&OpCode::FindProperty) else {
                 break;
             };
             let Some(i) = notdefined.remove(&prop.property) else {

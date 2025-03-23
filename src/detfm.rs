@@ -11,7 +11,7 @@ use rabc::{
     abc::{
         constant_pool::PushGetIndex,
         namespace::NamespaceKind,
-        parser::{InsIter, InsIterator, Op, OpCode},
+        parser::{opargs::PropertyArg, opmatch::OpSeq, InsIter, InsIterator, Op, OpCode},
         Class, ConstantPool, Metadata, Method, Multiname, Namespace, Trait, TraitAttr,
     },
     Abc,
@@ -45,13 +45,13 @@ static SUB_HANDLER_SEQ: [OpCode; 6] = [
     OpCode::CallPropVoid,
     OpCode::ReturnVoid,
 ];
-static TRIBULLE_PKT_GETTER_SEQ: [OpCode; 5] = [
+static TRIBULLE_PKT_GETTER_SEQ: OpSeq<5> = OpSeq([
     OpCode::GetLex,
     OpCode::GetLex,
     OpCode::GetProperty,
     OpCode::CallProperty,
     OpCode::Coerce,
-];
+]);
 static TRIBULLE_PKT_RETURN_ID_SEQ: [OpCode; 3] =
     [OpCode::Label, OpCode::PushDouble, OpCode::ReturnValue];
 
@@ -197,6 +197,7 @@ impl<'a> Detfm<'a> {
 
             let mut clientbound_counter = 0;
             let mut to_rename = Vec::new();
+            let pushdouble = OpCode::ConstructSuper | OpCode::PushDouble;
             for (index, klass) in self.abc.classes.iter().enumerate() {
                 if klass.super_name == 0 {
                     continue;
@@ -206,17 +207,16 @@ impl<'a> Detfm<'a> {
                 if super_name == spkt_name {
                     let instructions = self.abc.get_method(klass.iinit)?.parse()?;
                     let mut prog = instructions.iter_prog();
-                    let mut pcode = 0;
 
                     // Find the Packet's code
-                    while prog.has_next() && !prog.is(OpCode::ConstructSuper) {
-                        if let Op::PushDouble(p) = &prog.get().op {
-                            pcode = (pcode << 8) | (*self.cpool.get_double(p.value)? as u32);
-                        }
-                        prog.next();
-                    }
-                    let name =
-                        self.format_packet(&PktNames::Serverbound, (pcode >> 8) as u8, pcode as u8);
+                    let (mut categ_id, mut pkt_id) = (0, 0);
+                    if let Some(Op::PushDouble(p)) = prog.skip_until_op(&pushdouble) {
+                        categ_id = *self.cpool.get_double(p.value)? as u8;
+                    };
+                    if let Some(Op::PushDouble(p)) = prog.skip_until_op(&pushdouble) {
+                        pkt_id = *self.cpool.get_double(p.value)? as u8
+                    };
+                    let name = self.format_packet(&PktNames::Serverbound, categ_id, pkt_id);
                     klass.rename(self.cpool, name)?;
                     to_rename.push((index, ns.spkt));
                 } else if super_name == cpkt_name {
@@ -388,12 +388,12 @@ impl<'a> Detfm<'a> {
             {
                 let instructions = method.parse()?;
                 let mut prog = instructions.iter_prog();
-                match prog.skip_until_op(OpCode::GetProperty) {
-                    Some(Op::GetProperty(p)) if p.property == varint_reader.itraits[0].name() => {}
-                    _ => continue,
-                }
-                let prop = match prog.next_op() {
-                    Some(Op::CallProperty(p)) => p.property,
+                let getbuffer_op = Op::GetProperty(PropertyArg {
+                    property: varint_reader.itraits[0].name(),
+                });
+                let call_buffer_method = [OpCode::GetProperty, OpCode::CallProperty];
+                let prop = match prog.skip_until_match(&call_buffer_method)[..] {
+                    [prop, Op::CallProperty(p)] if prop == &getbuffer_op => p.property,
                     _ => continue,
                 };
 
@@ -423,11 +423,11 @@ impl<'a> Detfm<'a> {
         let instructions = ctor.parse()?;
         let mut prog = instructions.iter_prog();
         while prog.has_next() {
-            let key = match prog.skip_until_op(OpCode::PushString) {
+            let key = match prog.skip_until_op(&OpCode::PushString) {
                 Some(Op::PushString(p)) => p.value,
                 _ => break,
             };
-            let mn = match prog.skip_until_op(OpCode::GetProperty) {
+            let mn = match prog.skip_until_op(&OpCode::GetProperty) {
                 Some(Op::GetProperty(p)) => p.property,
                 _ => break,
             };
@@ -514,7 +514,7 @@ impl<'a> Detfm<'a> {
             if self.get_packet_code(&mut prog, &mut category, pkt_hdlr_name)? {
                 let target = prog.get().targets[0];
                 let mut found = false;
-                if prog.next().is_some_and(|p| p.is(OpCode::PushDouble)) {
+                if prog.next().is_some_and(|p| p.is(&OpCode::PushDouble)) {
                     prog.next();
                 }
 
@@ -527,13 +527,10 @@ impl<'a> Detfm<'a> {
                         break;
                     }
 
-                    while prog.has_next() && !prog.is(OpCode::ReturnVoid) {
-                        if prog.is_sequence(&NEW_CLASS_SEQ) {
-                            let name = match &prog.get().op {
-                                Op::FindPropStrict(p) => p.property,
-                                _ => unreachable!(),
-                            };
-                            let (i, class) = match self.find_class_by_name(name) {
+                    while prog.has_next() && !prog.is(&OpCode::ReturnVoid) {
+                        if let Some(Op::FindPropStrict(p)) = prog.get_match(&NEW_CLASS_SEQ).first()
+                        {
+                            let (i, class) = match self.find_class_by_name(p.property) {
                                 Some(cls) if !self.is_class_with_buffer_trait(cls.1) => cls,
                                 _ => break,
                             };
@@ -554,12 +551,12 @@ impl<'a> Detfm<'a> {
                     if prog.get().addr == target {
                         break;
                     }
-                    if prog.is(OpCode::PushDouble) {
+                    if prog.is(&OpCode::PushDouble) {
                         prog.next();
                     }
                 }
 
-                if !found && prog.is_sequence(&SUB_HANDLER_SEQ) {
+                if !found && prog.is(&SUB_HANDLER_SEQ) {
                     match (&prog.get().op, prog.peek(2)) {
                         (Op::GetLex(cls), Some(Op::GetLex(prop))) => {
                             if prop.property == pkt_hdlr_name {
@@ -603,47 +600,35 @@ impl<'a> Detfm<'a> {
             .enumerate()
             .map(|(i, ins)| (ins.addr, i))
             .collect();
+        let pushdouble_seq = OpSeq([OpCode::GetLocal2, OpCode::PushDouble, OpCode::IfNe])
+            | OpSeq([OpCode::PushDouble, OpCode::GetLocal2, OpCode::IfNe]);
 
         while prog.has_next() {
-            if prog.is(OpCode::GetLocal2) {
-                let pushdouble = match prog.peek(1) {
-                    Some(Op::PushDouble(_)) => prog.next_op(),
-                    _ => prog.prev_op(),
-                };
-                if let Some(Op::PushDouble(p)) = pushdouble {
-                    let code = *self.cpool.get_double(p.value)? as u8;
-                    if let Some(Op::IfNe(p)) = prog.peek(1) {
-                        let target = p.target;
-                        prog.next().unwrap().next();
+            prog.get_match(&pushdouble_seq);
+            let (value, target) = match prog.skip_until_match(&pushdouble_seq)[..] {
+                [Op::GetLocal2(), Op::PushDouble(p), Op::IfNe(t)]
+                | [Op::PushDouble(p), Op::GetLocal2(), Op::IfNe(t)] => (p.value, t.target),
+                _ => continue,
+            };
+            let code = *self.cpool.get_double(value)? as u8;
 
-                        while prog.has_next() && !prog.is(OpCode::ReturnVoid) {
-                            if prog.is_sequence(&NEW_CLASS_SEQ) {
-                                let name = match &prog.get().op {
-                                    Op::FindPropStrict(p) => p.property,
-                                    _ => unreachable!(),
-                                };
-                                let Some((i, _)) = self.find_class_by_name(name) else {
-                                    break;
-                                };
-                                self.abc.classes[i].rename(
-                                    self.cpool,
-                                    self.format_packet(&PktNames::Clientbound, category, code),
-                                )?;
-                                self.set_class_ns(i, ns.cpkt)?;
-                                break;
-                            }
-                            if prog.get().addr == target {
-                                break;
-                            }
-                            prog.next();
-                        }
-                        instructions1 = &instructions[addr2idx[&target]..];
-                        prog = instructions1.iter_prog();
-                        continue;
-                    }
+            while prog.has_next() && !prog.is(&OpCode::ReturnVoid) {
+                if let Some(Op::FindPropStrict(p)) = prog.get_match(&NEW_CLASS_SEQ).first() {
+                    let Some((i, _)) = self.find_class_by_name(p.property) else {
+                        break;
+                    };
+                    let name = self.format_packet(&PktNames::Clientbound, category, code);
+                    self.abc.classes[i].rename(self.cpool, name)?;
+                    self.set_class_ns(i, ns.cpkt)?;
+                    break;
                 }
+                if prog.get().addr == target {
+                    break;
+                }
+                prog.next();
             }
-            prog.next();
+            instructions1 = &instructions[addr2idx[&target]..];
+            prog = instructions1.iter_prog();
         }
 
         self.abc.classes[class].rename(self.cpool, fmt::packet_subhandler(category.into()))?;
@@ -651,24 +636,13 @@ impl<'a> Detfm<'a> {
         Ok(())
     }
 
-    fn find_clientbound_tribulle(
-        &mut self,
-        prog: &mut InsIterator<'_>,
-        ns: &NsNames,
-    ) -> Result<bool> {
-        while prog.has_next()
-            && !prog.is(OpCode::ReturnVoid)
-            && !prog.is_sequence(&TRIBULLE_PKT_GETTER_SEQ)
-        {
-            prog.next();
-        }
-        // safety check
-        let Op::GetLex(p) = &prog.get().op else {
-            return Ok(false);
-        };
-        let method = match (self.find_class_by_name(p.property), prog.peek(3)) {
-            (Some((class, _)), Some(Op::CallProperty(p))) => {
-                let Some(ctrait) = self.find_ctrait_by_name(class, p.property, true) else {
+    fn find_clientbound_tribulle(&mut self, prog: &mut InsIterator, ns: &NsNames) -> Result<bool> {
+        let method = match prog.skip_until_match(&TRIBULLE_PKT_GETTER_SEQ)[..] {
+            [Op::GetLex(lex), _, _, Op::CallProperty(call), _] => {
+                let Some((class, _)) = self.find_class_by_name(lex.property) else {
+                    return Ok(false);
+                };
+                let Some(ctrait) = self.find_ctrait_by_name(class, call.property, true) else {
                     return Ok(false);
                 };
                 // Make sure we have a method!
@@ -685,7 +659,7 @@ impl<'a> Detfm<'a> {
         let mut prog = instructions.iter_prog();
 
         // First we have a getlex
-        let Some(Op::GetLex(p)) = prog.skip_until_op(OpCode::GetLex) else {
+        let Some(Op::GetLex(p)) = prog.skip_until_op(&OpCode::GetLex) else {
             return Ok(false);
         };
         let Some((mut klass, _)) = self.find_class_by_name(p.property) else {
@@ -713,7 +687,7 @@ impl<'a> Detfm<'a> {
         }
 
         // followed by some args and a callproperty
-        let Some(Op::CallProperty(p)) = prog.skip_until_op(OpCode::CallProperty) else {
+        let Some(Op::CallProperty(p)) = prog.skip_until_op(&OpCode::CallProperty) else {
             return Ok(false);
         };
 
@@ -751,7 +725,7 @@ impl<'a> Detfm<'a> {
 
             let code = *self.cpool.get_double(p.value)? as u32;
             // find the next findpropstrict, that's the class we need to rename!
-            let Some(Op::FindPropStrict(p)) = prog.skip_until_op(OpCode::FindPropstrict) else {
+            let Some(Op::FindPropStrict(p)) = prog.skip_until_op(&OpCode::FindPropstrict) else {
                 continue; // should we return false?
             };
             let Some((class, _)) = self.find_class_by_name(p.property) else {
@@ -776,7 +750,7 @@ impl<'a> Detfm<'a> {
         let mut prog = instructions.iter_prog();
 
         // Skip it if we don't find it, that's not the end of the world
-        if let Some(Op::PushString(p)) = prog.skip_until_op(OpCode::PushString) {
+        if let Some(Op::PushString(p)) = prog.skip_until_op(&OpCode::PushString) {
             let version = self.cpool.get_str(p.value)?;
             log::info!("Found Tribulle v{version}");
         } else {
@@ -806,34 +780,30 @@ impl<'a> Detfm<'a> {
 
         let mut addr2id = HashMap::new();
         let mut index2name = HashMap::new();
-        prog.skip_until_seq(&TRIBULLE_PKT_RETURN_ID_SEQ);
-        while prog.is_sequence(&TRIBULLE_PKT_RETURN_ID_SEQ) {
-            let addr = prog.get().addr;
-            match prog.next_op() {
-                Some(Op::PushDouble(p)) => {
-                    addr2id.insert(addr, *self.cpool.get_double(p.value)? as u16)
-                }
-                _ => unreachable!(),
-            };
-            // Skip the sequence 💩
-            prog.next().unwrap().next();
+        let mut addr = prog
+            .skip_until(&TRIBULLE_PKT_RETURN_ID_SEQ)
+            .map_or(0, |p| p.get().addr);
+
+        while let Some(Op::PushDouble(p)) = prog.get_match(&TRIBULLE_PKT_RETURN_ID_SEQ).get(1) {
+            addr2id.insert(addr, *self.cpool.get_double(p.value)? as u16);
+            addr = prog.get().addr;
         }
 
         // find the getlex's and the index used in the lookupswitch
         while prog.has_next() {
-            let Some(Op::GetLex(getlex)) = prog.skip_until_op(OpCode::GetLex) else {
+            let Some(Op::GetLex(getlex)) = prog.skip_until_op(&OpCode::GetLex) else {
                 break;
             };
-            let Some(Op::PushByte(p)) = prog.skip_until_op(OpCode::PushByte) else {
+            let Some(Op::PushByte(p)) = prog.skip_until_op(&OpCode::PushByte) else {
                 break;
             };
             index2name.insert(p.value, getlex.property);
             prog.next();
-            if !prog.is_sequence(&[OpCode::Jump, OpCode::GetLocal1]) {
+            if !prog.is(&[OpCode::Jump, OpCode::GetLocal1]) {
                 break;
             }
         }
-        if prog.skip_until(OpCode::LookupSwitch).is_none() {
+        if prog.skip_until(&OpCode::LookupSwitch).is_none() {
             return Ok(());
         }
         let target_count: u8 = prog.get().targets.len().try_into()?;
