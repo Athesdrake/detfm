@@ -80,9 +80,9 @@ impl JumpInfo {
 
     pub fn add(&mut self, ins: Instruction) {
         if !self.removed.is_empty() {
-            // let mut removed = Vec::with_capacity(self.removed.capacity());
-            // swap(&mut removed, &mut self.removed);
-            let removed: Vec<_> = self.removed.drain(..).collect();
+            let mut removed = Vec::with_capacity(self.removed.capacity());
+            swap(&mut removed, &mut self.removed);
+            // let removed: Vec<_> = self.removed.drain(..).collect();
             for addr in removed {
                 self.do_remove(addr, ins.addr);
             }
@@ -141,8 +141,8 @@ impl JumpInfo {
         swap(&mut self.instructions, &mut instructions);
         // recompute the instructions address
         let mut pos = 0;
-        let mut old2new = HashMap::new();
-        let mut new2old = HashMap::new();
+        let mut old2new = HashMap::with_capacity(instructions.len());
+        let mut new2old = HashMap::with_capacity(instructions.len());
         for ins in &mut instructions {
             old2new.insert(ins.addr, pos);
             new2old.insert(pos, ins.addr);
