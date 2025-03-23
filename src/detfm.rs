@@ -11,7 +11,11 @@ use rabc::{
     abc::{
         constant_pool::PushGetIndex,
         namespace::NamespaceKind,
-        parser::{opargs::PropertyArg, opmatch::OpSeq, InsIter, InsIterator, Op, OpCode},
+        parser::{
+            opargs::{PropertyArg, PushDoubleArg},
+            opmatch::OpSeq,
+            InsIter, InsIterator, Op, OpCode,
+        },
         Class, ConstantPool, Metadata, Method, Multiname, Namespace, Trait, TraitAttr,
     },
     Abc,
@@ -191,13 +195,20 @@ impl<'a> Detfm<'a> {
         self.rename_readany(&classes)?;
         self.rename_interface_proxy(&classes)?;
 
+        let simple_push = OpSeq([OpCode::PushDouble, OpCode::ConstructSuper]);
+        let double_push = OpSeq([
+            OpCode::PushDouble,
+            OpCode::PushDouble,
+            OpCode::ConstructSuper,
+        ]);
+        let super_construct_seq = double_push | simple_push;
+
         if let (Some(base_spkt), Some(base_cpkt)) = (classes.base_spkt, classes.base_cpkt) {
             let spkt_name = self.cpool.str(self.abc.classes[base_spkt].name).unwrap();
             let cpkt_name = self.cpool.str(self.abc.classes[base_cpkt].name).unwrap();
 
             let mut clientbound_counter = 0;
             let mut to_rename = Vec::new();
-            let pushdouble = OpCode::ConstructSuper | OpCode::PushDouble;
             for (index, klass) in self.abc.classes.iter().enumerate() {
                 if klass.super_name == 0 {
                     continue;
@@ -207,14 +218,18 @@ impl<'a> Detfm<'a> {
                 if super_name == spkt_name {
                     let instructions = self.abc.get_method(klass.iinit)?.parse()?;
                     let mut prog = instructions.iter_prog();
-
-                    // Find the Packet's code
-                    let (mut categ_id, mut pkt_id) = (0, 0);
-                    if let Some(Op::PushDouble(p)) = prog.skip_until_op(&pushdouble) {
-                        categ_id = *self.cpool.get_double(p.value)? as u8;
+                    let get_code = |p: &PushDoubleArg| {
+                        self.cpool.get_double(p.value).cloned().unwrap_or(0.0) as u8
                     };
-                    if let Some(Op::PushDouble(p)) = prog.skip_until_op(&pushdouble) {
-                        pkt_id = *self.cpool.get_double(p.value)? as u8
+
+                    // Find the Packet's code: super(categ_id, pkt_id)
+                    let (categ_id, pkt_id) = match prog.skip_until_match(&super_construct_seq)[..] {
+                        [Op::PushDouble(p1), Op::PushDouble(p2), _] => (get_code(p1), get_code(p2)),
+                        [Op::PushDouble(p1), _] => (0, get_code(p1)),
+                        _ => bail!(
+                            "Unable to find serverbound packet's code: {}",
+                            self.cpool.fqn(klass).unwrap_or(index.to_string())
+                        ),
                     };
                     let name = self.format_packet(&PktNames::Serverbound, categ_id, pkt_id);
                     klass.rename(self.cpool, name)?;
