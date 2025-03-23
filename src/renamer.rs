@@ -43,7 +43,7 @@ pub struct Renamer {
 
 impl Renamer {
     pub fn invalid(name: &str) -> bool {
-        name.chars().any(|c| !c.is_alphabetic())
+        name.chars().any(|c| !c.is_alphabetic() && c != '_')
     }
     fn invalid_multiname(cpool: &ConstantPool, index: u32) -> Result<bool> {
         Ok(Self::invalid(cpool.get_str(cpool.get_mn_name(index)?)?))
