@@ -23,6 +23,7 @@ use rabc::{
 use simplify::simplify_expressions;
 use std::{
     collections::{hash_map::Entry, HashMap, HashSet},
+    mem::swap,
     option::Option,
 };
 use unscramble::unscramble_method;
@@ -280,6 +281,24 @@ impl<'a> Detfm<'a> {
         self.find_clientbound_packets(&classes, &ns)?;
         self.create_missing_sets();
         Ok(())
+    }
+
+    pub fn proxy2localhost(&mut self, port: u16) -> Option<(String, String)> {
+        let specials: HashSet<char> = ".:-".chars().collect();
+        for string in &mut self.cpool.strings {
+            // min size should be: 0.0.0.0:0-0
+            if string.len() < 11 {
+                continue;
+            }
+            let chars = string.chars().collect();
+            let mut diff = specials.symmetric_difference(&chars);
+            if diff.all(|c| c.is_ascii_digit()) {
+                let mut previous = format!("127.0.0.1:{port}");
+                swap(&mut previous, string);
+                return Some((previous, string.clone()));
+            }
+        }
+        None
     }
 
     fn create_package(&mut self, name: &str) -> u32 {

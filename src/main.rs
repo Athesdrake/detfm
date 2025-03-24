@@ -77,8 +77,6 @@ impl From<Compression> for rabc::Compression {
 fn main() -> ExitCode {
     let args = Args::parse();
     let mut timings = Vec::new();
-    // // enable proxy mode when --proxy-port is given
-    // args.enable_proxy |= args.proxy_port.is_some();
 
     stderrlog::new()
         .module(module_path!())
@@ -181,6 +179,15 @@ fn main() -> ExitCode {
     }
     timings.push(("Renaming", boot.elapsed()));
     // log::info!("Matching user-defined classes.");
+
+    if let Some(port) = args.proxy_port.or(args.enable_proxy.then_some(11801)) {
+        if let Some((from, to)) = detfm.proxy2localhost(port) {
+            log::info!("Proxying to {to:?} (was {from:?}).");
+        } else {
+            log::warn!("Server's ip not found.");
+        }
+        timings.push(("Proxying", boot.elapsed()));
+    }
 
     log::info!("Writing file.");
     // disable compression by default to speed up the write routine
