@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use std::{collections::HashMap, sync::LazyLock};
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct PacketNames {
     clientbound: HashMap<u32, String>,
     serverbound: HashMap<u32, String>,
@@ -18,12 +18,12 @@ pub enum PktNames {
 }
 
 impl PacketNames {
-    pub fn from_json(value: jzon::JsonValue) -> Result<Self> {
+    pub fn from_json(value: &jzon::JsonValue) -> Result<Self> {
         Ok(Self {
-            clientbound: Self::get_json_map(&value, "clientbound")?,
-            serverbound: Self::get_json_map(&value, "serverbound")?,
-            tribulle_clientbound: Self::get_json_map(&value, "tribulle_clientbound")?,
-            tribulle_serverbound: Self::get_json_map(&value, "tribulle_serverbound")?,
+            clientbound: Self::get_json_map(value, "clientbound")?,
+            serverbound: Self::get_json_map(value, "serverbound")?,
+            tribulle_clientbound: Self::get_json_map(value, "tribulle_clientbound")?,
+            tribulle_serverbound: Self::get_json_map(value, "tribulle_serverbound")?,
         })
     }
 

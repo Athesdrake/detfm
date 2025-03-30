@@ -6,7 +6,7 @@ use anyhow::{anyhow, bail, Result};
 use classes::{Classes, DetfmClass, StaticClass, WrapClass};
 use itertools::Itertools;
 use ns::NsNames;
-use pktnames::{PktNames, PKT_NAMES};
+use pktnames::{PacketNames, PktNames, PKT_NAMES};
 use rabc::{
     abc::{
         constant_pool::PushGetIndex,
@@ -66,16 +66,22 @@ pub struct Detfm<'a> {
 
     byte_array: Option<u32>,
     ns_class_map: HashMap<u32, u32>,
+
+    packet_names: PacketNames,
 }
 
 impl<'a> Detfm<'a> {
-    pub fn new(abc: &'a mut Abc, cpool: &'a mut ConstantPool) -> Self {
+    pub fn new(abc: &'a mut Abc, cpool: &'a mut ConstantPool, packet_names: PacketNames) -> Self {
         Self {
             abc,
             cpool,
             byte_array: None,
             ns_class_map: HashMap::new(),
+            packet_names,
         }
+    }
+    pub fn new_from_abc(abc: &'a mut Abc, cpool: &'a mut ConstantPool) -> Self {
+        Self::new(abc, cpool, PacketNames::default())
     }
 
     pub fn simplify_init(&mut self) -> Result<()> {
@@ -480,7 +486,9 @@ impl<'a> Detfm<'a> {
     }
 
     fn get_known_name(&self, side: &PktNames, pcode: u32) -> String {
-        PKT_NAMES.get(side, pcode).cloned().unwrap_or_default()
+        let fallback = || PKT_NAMES.get(side, pcode);
+        let name = self.packet_names.get(side, pcode);
+        name.or_else(fallback).cloned().unwrap_or_default()
     }
     fn format_packet(&self, side: &PktNames, categ_id: u8, pkt_id: u8) -> String {
         let name = self.get_known_name(side, ((categ_id as u32) << 8) | pkt_id as u32);

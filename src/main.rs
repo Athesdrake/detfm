@@ -4,11 +4,19 @@ mod rename;
 mod renamer;
 use anyhow::{bail, Result};
 use clap::{Parser, ValueEnum};
-use detfm::Detfm;
+use detfm::{pktnames::PacketNames, Detfm};
 use rabc::{abc::ConstantPool, Abc, Movie, StreamWriter};
 use rename::{PoolRenamer, Rename};
 use renamer::Renamer;
-use std::{fmt::Display, fs::File, io::Write, mem::swap, process::ExitCode, time::Instant};
+use std::{
+    fmt::Display,
+    fs::{self, File},
+    io::Write,
+    mem::swap,
+    path::PathBuf,
+    process::ExitCode,
+    time::Instant,
+};
 use unpacker::{MovieReader, Unpacker};
 
 /// Unpack Transformice SWF file
@@ -22,6 +30,10 @@ struct Args {
     /// Do not unpack the swf file before deobfuscating.
     #[arg(long = "no-unpack", action = clap::ArgAction::SetFalse)]
     unpack: bool,
+
+    /// Specify a config file.
+    #[arg(short = 'c', long = "config")]
+    config: Option<PathBuf>,
 
     /// Set the compression algorithm for the ouput file.
     #[arg(short = 'C', long = "compression", default_value_t = Compression::None)]
@@ -90,6 +102,17 @@ fn main() -> ExitCode {
         .unwrap();
 
     let boot = Instant::now();
+    let packet_names = match args.config {
+        Some(config) if config.is_file() => match load_config(config) {
+            Err(err) => {
+                log::error!("Cannot load config: {err}");
+                return ExitCode::FAILURE;
+            }
+            Ok(names) => names,
+        },
+        _ => None,
+    };
+
     log::info!("Reading file {}", args.input);
     let movie = Movie::from_file(&args.input);
     timings.push(("Reading file", boot.elapsed()));
@@ -155,7 +178,7 @@ fn main() -> ExitCode {
     }
 
     log::info!("Analyzing methods and classes.");
-    let mut detfm = Detfm::new(&mut abc, &mut cpool);
+    let mut detfm = Detfm::new(&mut abc, &mut cpool, packet_names.unwrap_or_default());
     detfm.simplify_init().unwrap();
 
     let (classes, missing_classes) = detfm.analyze();
@@ -202,6 +225,15 @@ fn main() -> ExitCode {
     // Display stats
     display_stats(timings, boot);
     ExitCode::SUCCESS
+}
+
+fn load_config(config_path: PathBuf) -> Result<Option<PacketNames>> {
+    let config = jzon::parse(&fs::read_to_string(config_path)?)?;
+    let mut packet_names = None;
+    if let Some(names) = config.get("packet_names") {
+        packet_names = Some(PacketNames::from_json(names)?);
+    }
+    Ok(packet_names)
 }
 
 fn unpack_movie(movie: Movie) -> Result<Movie> {
