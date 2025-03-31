@@ -1,26 +1,51 @@
-macro_rules! formatter {
-    ($name:ident, $fmt: literal, $($arg:ident: $type:ty),*) => {
-        pub fn $name($($arg: $type),*) -> String {
-            format!($fmt, $($arg),*)
-        }
-    };
+use rabc::abc::Trait;
+
+use crate::{detfm::pktnames::PktNames, renamer::Counters};
+
+pub trait Formatter: std::fmt::Debug {
+    fn traits(&self, ctrait: &Trait, counters: &mut Counters) -> String;
+    fn classes(&self, counter: u32) -> String;
+    fn errors(&self, counter: u32) -> String;
+    fn symbols(&self, id: u16) -> String;
+    fn packets(&self, side: &PktNames, pkt_id: u16, name: String) -> String;
+    fn subhandler(&self, category: u8) -> String;
+    fn unknown_packet(&self, counter: u32) -> String;
 }
 
-formatter!(_test, "test_{}", i: u8);
+#[derive(Debug)]
+pub struct DefaultFormatter;
 
-formatter!(classes,  "class_{:03}", i: u32);
-formatter!(consts,  "const_{:03}", i: u32);
-formatter!(functions, "function_{:03}", i: u32);
-formatter!(_names,  "name_{:03}", i: u32);
-formatter!(vars,  "var_{:03}", i: u32);
-formatter!(methods,  "method_{:03}", i: u32);
-formatter!(errors,  "error{:}", i: u32);
-formatter!(symbols,  "ClassSymbol_{:}", i: u32);
-
-formatter!(clientbound_packet  , "CPacket{:02x}{:02x}{}", categ_id: u8, pkt_id: u8, name: String);
-formatter!(serverbound_packet  , "SPacket{:02x}{:02x}{}", categ_id: u8, pkt_id: u8, name: String);
-formatter!(tribulle_clientbound_packet, "TCPacket_{:04x}{}", i: u16, name: String);
-formatter!(tribulle_serverbound_packet, "TSPacket_{:04x}{}", i: u16, name: String);
-
-formatter!(packet_subhandler, "PacketSubHandler_{:02x}", i: u16);
-formatter!(unknown_clientbound_packet, "CPacket_u{:02}", i: u16);
+impl Formatter for DefaultFormatter {
+    fn traits(&self, ctrait: &Trait, counters: &mut Counters) -> String {
+        match ctrait {
+            Trait::Const(_) => format!("const_{:03}", counters.consts()),
+            Trait::Method(_) => format!("method_{:03}", counters.methods()),
+            Trait::Function(_) => format!("function_{:03}", counters.functions()),
+            _ => format!("var_{:03}", counters.vars()),
+        }
+    }
+    fn classes(&self, counter: u32) -> String {
+        format!("class_{:03}", counter)
+    }
+    fn errors(&self, counter: u32) -> String {
+        format!("error{:}", counter)
+    }
+    fn symbols(&self, id: u16) -> String {
+        format!("ClassSymbol_{:}", id)
+    }
+    fn packets(&self, side: &PktNames, pkt_id: u16, name: String) -> String {
+        let (categ_id, id) = (pkt_id >> 8, pkt_id & 0xff);
+        match side {
+            PktNames::Serverbound => format!("SPacket{:02x}{:02x}{}", categ_id, id, name),
+            PktNames::Clientbound => format!("CPacket{:02x}{:02x}{}", categ_id, id, name),
+            PktNames::TribulleClientbound => format!("TCPacket_{:04x}{}", pkt_id, name),
+            PktNames::TribulleServerbound => format!("TSPacket_{:04x}{}", pkt_id, name),
+        }
+    }
+    fn subhandler(&self, category: u8) -> String {
+        format!("PacketSubHandler_{:02x}", category)
+    }
+    fn unknown_packet(&self, counter: u32) -> String {
+        format!("CPacket_u{:02x}", counter)
+    }
+}

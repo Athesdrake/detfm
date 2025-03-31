@@ -1,5 +1,5 @@
 use crate::{
-    fmt,
+    fmt::Formatter,
     rename::{PoolRenamer, Rename},
 };
 use anyhow::{anyhow, bail, Result};
@@ -67,21 +67,25 @@ pub struct Detfm<'a> {
     byte_array: Option<u32>,
     ns_class_map: HashMap<u32, u32>,
 
+    pub fmt: Box<dyn Formatter>,
     packet_names: PacketNames,
 }
 
 impl<'a> Detfm<'a> {
-    pub fn new(abc: &'a mut Abc, cpool: &'a mut ConstantPool, packet_names: PacketNames) -> Self {
+    pub fn new(
+        abc: &'a mut Abc,
+        cpool: &'a mut ConstantPool,
+        fmt: Box<dyn Formatter>,
+        packet_names: PacketNames,
+    ) -> Self {
         Self {
             abc,
             cpool,
             byte_array: None,
             ns_class_map: HashMap::new(),
             packet_names,
+            fmt,
         }
-    }
-    pub fn new_from_abc(abc: &'a mut Abc, cpool: &'a mut ConstantPool) -> Self {
-        Self::new(abc, cpool, PacketNames::default())
     }
 
     pub fn simplify_init(&mut self) -> Result<()> {
@@ -238,12 +242,12 @@ impl<'a> Detfm<'a> {
                             self.cpool.fqn(klass).unwrap_or(index.to_string())
                         ),
                     };
-                    let name = self.format_packet(&PktNames::Serverbound, categ_id, pkt_id);
+                    let name = self.format_packet2(&PktNames::Serverbound, categ_id, pkt_id);
                     klass.rename(self.cpool, name)?;
                     to_rename.push((index, ns.spkt));
                 } else if super_name == cpkt_name {
                     clientbound_counter += 1;
-                    let name = fmt::unknown_clientbound_packet(clientbound_counter);
+                    let name = self.fmt.unknown_packet(clientbound_counter);
                     klass.rename(self.cpool, name)?;
                     to_rename.push((index, ns.cpkt));
                 }
@@ -485,26 +489,17 @@ impl<'a> Detfm<'a> {
         Ok(())
     }
 
-    fn get_known_name(&self, side: &PktNames, pcode: u32) -> String {
-        let fallback = || PKT_NAMES.get(side, pcode);
-        let name = self.packet_names.get(side, pcode);
+    fn get_known_name(&self, side: &PktNames, pkt_id: u16) -> String {
+        let fallback = || PKT_NAMES.get(side, pkt_id);
+        let name = self.packet_names.get(side, pkt_id);
         name.or_else(fallback).cloned().unwrap_or_default()
     }
-    fn format_packet(&self, side: &PktNames, categ_id: u8, pkt_id: u8) -> String {
-        let name = self.get_known_name(side, ((categ_id as u32) << 8) | pkt_id as u32);
-        match side {
-            PktNames::Serverbound => fmt::serverbound_packet(categ_id, pkt_id, name),
-            PktNames::Clientbound => fmt::clientbound_packet(categ_id, pkt_id, name),
-            _ => panic!("Use format_tribulle_packet instead."),
-        }
+    fn format_packet(&self, side: &PktNames, pkt_id: u16) -> String {
+        let name = self.get_known_name(side, pkt_id);
+        self.fmt.packets(side, pkt_id, name)
     }
-    fn format_tribulle_packet(&self, side: &PktNames, pkt_id: u16) -> String {
-        let name = self.get_known_name(side, pkt_id.into());
-        match side {
-            PktNames::TribulleClientbound => fmt::tribulle_clientbound_packet(pkt_id, name),
-            PktNames::TribulleServerbound => fmt::tribulle_serverbound_packet(pkt_id, name),
-            _ => panic!("Use format_packet instead."),
-        }
+    fn format_packet2(&self, side: &PktNames, categ_id: u8, pkt_id: u8) -> String {
+        self.format_packet(side, ((categ_id as u16) << 8) | pkt_id as u16)
     }
 
     fn find_clientbound_packets(&mut self, classes: &Classes, ns: &NsNames) -> Result<()> {
@@ -565,7 +560,7 @@ impl<'a> Detfm<'a> {
                             self.set_class_ns(i, ns.cpkt)?;
                             self.cpool.rename_multiname(
                                 class_name,
-                                self.format_packet(&PktNames::Clientbound, category, code),
+                                self.format_packet2(&PktNames::Clientbound, category, code),
                             )?;
                         }
                         prog.next();
@@ -644,7 +639,7 @@ impl<'a> Detfm<'a> {
                     let Some((i, _)) = self.find_class_by_name(p.property) else {
                         break;
                     };
-                    let name = self.format_packet(&PktNames::Clientbound, category, code);
+                    let name = self.format_packet2(&PktNames::Clientbound, category, code);
                     self.abc.classes[i].rename(self.cpool, name)?;
                     self.set_class_ns(i, ns.cpkt)?;
                     break;
@@ -658,7 +653,7 @@ impl<'a> Detfm<'a> {
             prog = instructions1.iter_prog();
         }
 
-        self.abc.classes[class].rename(self.cpool, fmt::packet_subhandler(category.into()))?;
+        self.abc.classes[class].rename(self.cpool, self.fmt.subhandler(category))?;
         self.set_class_ns(class, ns.pkt)?;
         Ok(())
     }
@@ -753,7 +748,7 @@ impl<'a> Detfm<'a> {
                 continue;
             };
 
-            let code = *self.cpool.get_double(p.value)? as u32;
+            let code = *self.cpool.get_double(p.value)? as u16;
             // find the next findpropstrict, that's the class we need to rename!
             let Some(Op::FindPropStrict(p)) = prog.skip_until_op(&OpCode::FindPropstrict) else {
                 continue; // should we return false?
@@ -847,7 +842,7 @@ impl<'a> Detfm<'a> {
             let Some(&code) = addr2id.get(&prog.get().targets[i as usize + 1]) else {
                 continue;
             };
-            let name = self.format_tribulle_packet(&PktNames::TribulleServerbound, code);
+            let name = self.format_packet(&PktNames::TribulleServerbound, code);
             self.abc.classes[cls].rename(self.cpool, name)?;
             self.set_class_ns(cls, ns.tspkt)?;
         }

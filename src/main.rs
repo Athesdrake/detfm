@@ -5,6 +5,7 @@ mod renamer;
 use anyhow::{bail, Result};
 use clap::{Parser, ValueEnum};
 use detfm::{pktnames::PacketNames, Detfm};
+use fmt::{DefaultFormatter, Formatter};
 use rabc::{abc::ConstantPool, Abc, Movie, StreamWriter};
 use rename::{PoolRenamer, Rename};
 use renamer::Renamer;
@@ -102,6 +103,7 @@ fn main() -> ExitCode {
         .unwrap();
 
     let boot = Instant::now();
+    let fmt = DefaultFormatter;
     let packet_names = match args.config {
         Some(config) if config.is_file() => match load_config(config) {
             Err(err) => {
@@ -158,7 +160,7 @@ fn main() -> ExitCode {
         let pos = name.find('_').map(|n| n + 1).unwrap_or(0);
         let mut new_name = format!("${}", &name[pos..]);
         if Renamer::invalid(&new_name) {
-            new_name = fmt::symbols((*id).into());
+            new_name = fmt.symbols(*id);
         }
         cpool.replace_string(name, &new_name);
     }
@@ -171,14 +173,15 @@ fn main() -> ExitCode {
     abc.classes[0].rename_str(&mut cpool, "Game").unwrap();
 
     timings.push(("Renaming invalid fields", boot.elapsed()));
-    if let Err(err) = Renamer::default().rename_all(&mut abc, &mut cpool) {
+    if let Err(err) = Renamer::new(&fmt).rename_all(&mut abc, &mut cpool) {
         log::error!("Error while renaming invalid symbols: {err}");
         display_stats(timings, boot);
         return ExitCode::FAILURE;
     }
 
     log::info!("Analyzing methods and classes.");
-    let mut detfm = Detfm::new(&mut abc, &mut cpool, packet_names.unwrap_or_default());
+    let packet_names = packet_names.unwrap_or_default();
+    let mut detfm = Detfm::new(&mut abc, &mut cpool, Box::new(fmt), packet_names);
     detfm.simplify_init().unwrap();
 
     let (classes, missing_classes) = detfm.analyze();

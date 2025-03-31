@@ -3,10 +3,10 @@ use std::{collections::HashMap, sync::LazyLock};
 
 #[derive(Debug, Default)]
 pub struct PacketNames {
-    clientbound: HashMap<u32, String>,
-    serverbound: HashMap<u32, String>,
-    tribulle_clientbound: HashMap<u32, String>,
-    tribulle_serverbound: HashMap<u32, String>,
+    clientbound: HashMap<u16, String>,
+    serverbound: HashMap<u16, String>,
+    tribulle_clientbound: HashMap<u16, String>,
+    tribulle_serverbound: HashMap<u16, String>,
 }
 
 #[derive(Debug)]
@@ -27,7 +27,7 @@ impl PacketNames {
         })
     }
 
-    pub fn get(&self, category: &PktNames, code: u32) -> Option<&String> {
+    pub fn get(&self, category: &PktNames, code: u16) -> Option<&String> {
         match category {
             PktNames::Clientbound => &self.clientbound,
             PktNames::Serverbound => &self.serverbound,
@@ -37,16 +37,16 @@ impl PacketNames {
         .get(&code)
     }
 
-    fn get_json_map(value: &jzon::JsonValue, name: &str) -> Result<HashMap<u32, String>> {
+    fn get_json_map(value: &jzon::JsonValue, name: &str) -> Result<HashMap<u16, String>> {
         Self::json_to_map(value.get(name).unwrap_or(&jzon::Null)).context(format!("Invalid {name}"))
     }
-    fn json_to_map(value: &jzon::JsonValue) -> Result<HashMap<u32, String>> {
+    fn json_to_map(value: &jzon::JsonValue) -> Result<HashMap<u16, String>> {
         value
             .as_object()
             .ok_or(anyhow!("Json entries should be objects"))?
             .iter()
             .map(|(key, value)| {
-                let key = u32::from_str_radix(key, 16)
+                let key = u16::from_str_radix(key, 16)
                     .context("Keys should be packet's code in hexadecimals")?;
                 let value = value.as_str().ok_or(anyhow!("Value should be a string"))?;
                 let mut name = String::with_capacity(value.len());

@@ -1,5 +1,5 @@
 use crate::{
-    fmt,
+    fmt::Formatter,
     rename::{PoolRenamer, Rename, RenameSuper},
 };
 use anyhow::Result;
@@ -10,7 +10,7 @@ use rabc::{
 
 macro_rules! counter {
     ($name:ident) => {
-        fn $name(&mut self) -> u32 {
+        pub fn $name(&mut self) -> u32 {
             let value = self.$name;
             self.$name += 1;
             value
@@ -19,7 +19,7 @@ macro_rules! counter {
 }
 
 #[derive(Debug, Default)]
-struct Counters {
+pub struct Counters {
     classes: u32,
     consts: u32,
     functions: u32,
@@ -36,12 +36,17 @@ impl Counters {
     counter!(methods);
 }
 
-#[derive(Debug, Default)]
-pub struct Renamer {
+#[derive(Debug)]
+pub struct Renamer<'a> {
     counters: Counters,
+    fmt: &'a dyn Formatter,
 }
 
-impl Renamer {
+impl<'a> Renamer<'a> {
+    pub fn new(fmt: &'a dyn Formatter) -> Self {
+        let counters = Default::default();
+        Self { fmt, counters }
+    }
     pub fn invalid(name: &str) -> bool {
         name.chars().any(|c| !c.is_alphabetic() && c != '_')
     }
@@ -61,10 +66,10 @@ impl Renamer {
     }
     fn rename_invalid_class(&mut self, cpool: &mut ConstantPool, class: &Class) -> Result<()> {
         if class.name != 0 && Self::invalid_multiname(cpool, class.name)? {
-            class.rename(cpool, fmt::classes(self.counters.classes()))?;
+            class.rename(cpool, self.fmt.classes(self.counters.classes()))?;
         }
         if class.super_name != 0 && Self::invalid_multiname(cpool, class.super_name)? {
-            class.rename_super(cpool, fmt::classes(self.counters.classes()))?;
+            class.rename_super(cpool, self.fmt.classes(self.counters.classes()))?;
         }
 
         for cls_trait in class.ctraits.iter().chain(class.itraits.iter()) {
@@ -76,20 +81,14 @@ impl Renamer {
     fn rename_invalid_trait(&mut self, cpool: &mut ConstantPool, cls_trait: &Trait) -> Result<()> {
         let name = cls_trait.name();
         if name != 0 && Self::invalid_multiname(cpool, name)? {
-            let name = match cls_trait {
-                Trait::Const(_) => fmt::consts(self.counters.consts()),
-                Trait::Method(_) => fmt::methods(self.counters.methods()),
-                Trait::Function(_) => fmt::functions(self.counters.functions()),
-                _ => fmt::vars(self.counters.vars()),
-            };
-            cls_trait.rename(cpool, name)?;
+            cls_trait.rename(cpool, self.fmt.traits(cls_trait, &mut self.counters))?;
         }
         Ok(())
     }
 
     fn rename_invalid_method(&mut self, cpool: &mut ConstantPool, method: &Method) -> Result<()> {
         for (i, err) in method.exceptions.iter().enumerate() {
-            Self::rename_invalid_exception(cpool, err, i as u32)?;
+            self.rename_invalid_exception(cpool, err, i as u32)?;
         }
 
         for mtrait in &method.traits {
@@ -99,12 +98,13 @@ impl Renamer {
     }
 
     fn rename_invalid_exception(
+        &self,
         cpool: &mut ConstantPool,
         exception: &Exception,
         counter: u32,
     ) -> Result<()> {
         if Self::invalid_multiname(cpool, exception.var_name)? {
-            exception.rename(cpool, fmt::errors(counter))?;
+            exception.rename(cpool, self.fmt.errors(counter))?;
         }
         Ok(())
     }
