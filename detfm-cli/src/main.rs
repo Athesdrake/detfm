@@ -1,4 +1,4 @@
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use clap::{Parser, ValueEnum};
 use detfm::{
     detfm::pktnames::PacketNames,
@@ -15,7 +15,7 @@ use std::{
     mem::swap,
     path::PathBuf,
     process::ExitCode,
-    time::Instant,
+    time::{Duration, Instant},
 };
 use unpacker::{MovieReader, Unpacker};
 
@@ -70,6 +70,16 @@ enum Compression {
     None,
 }
 
+impl Args {
+    fn verbosity(&self) -> log::Level {
+        match self.verbose {
+            0 => log::Level::Warn,
+            1 => log::Level::Info,
+            2 => log::Level::Debug,
+            _ => log::Level::Trace,
+        }
+    }
+}
 impl Display for Compression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let value = match self {
@@ -90,79 +100,61 @@ impl From<Compression> for rabc::Compression {
     }
 }
 
-#[allow(clippy::too_many_lines)]
-#[allow(clippy::print_stdout)]
 fn main() -> ExitCode {
-    let args = Args::parse();
     let mut timings = Vec::new();
+    let boot = Instant::now();
 
+    let res = match impl_main(&mut timings, boot) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            log::error!("{err}");
+            ExitCode::FAILURE
+        }
+    };
+
+    // Display stats
+    display_stats(timings, boot);
+    res
+}
+
+fn impl_main(timings: &mut Vec<(&str, Duration)>, boot: Instant) -> Result<()> {
+    let args = Args::parse();
     stderrlog::new()
         .module(module_path!())
-        .verbosity(match args.verbose {
-            0 => log::Level::Warn,
-            1 => log::Level::Info,
-            2 => log::Level::Debug,
-            _ => log::Level::Trace,
-        })
+        .verbosity(args.verbosity())
         .init()
         .unwrap();
 
-    let boot = Instant::now();
     let fmt: Box<dyn Formatter> = match &args.format_script {
-        Some(file) => match load_formatter_script(file) {
-            Ok(fmt) => fmt,
-            Err(err) => {
-                log::error!("Error while reading {file:?}: {err}");
-                return ExitCode::FAILURE;
-            }
-        },
+        Some(file) => {
+            load_formatter_script(file).context(format!("Error while reading file {file:?}"))?
+        }
         None => Box::new(DefaultFormatter),
     };
     let packet_names = match args.config {
-        Some(config) if config.is_file() => match load_config(config) {
-            Err(err) => {
-                log::error!("Cannot load config: {err}");
-                return ExitCode::FAILURE;
-            }
-            Ok(names) => names,
-        },
+        Some(config) if config.is_file() => {
+            load_config(config).context("Error while loading config")?
+        }
+        Some(config) => {
+            log::warn!("Invalid config file: {config:?}");
+            None
+        }
         _ => None,
     };
 
     log::info!("Reading file {}", args.input);
     let movie = Movie::from_file(&args.input);
     timings.push(("Reading file", boot.elapsed()));
-    let mut movie = match movie {
-        Ok(movie) => movie,
-        Err(e) => {
-            println!("Error while reading the file {:?}: {}", args.input, e);
-            display_stats(timings, boot);
-            return ExitCode::FAILURE;
-        }
-    };
+    let mut movie = movie.context(format!("Error while reading the file {0:?}", args.input))?;
 
     if args.unpack && movie.frame1().is_some() {
         log::info!("Unpacking.");
         let res = unpack_movie(&movie);
         timings.push(("Unpacking", boot.elapsed()));
-        movie = match res {
-            Ok(movie) => movie,
-            Err(e) => {
-                log::error!("Unpacking failed: {e}");
-                return ExitCode::FAILURE;
-            }
-        }
+        movie = res.context("Unpacking failed")?;
     }
 
-    let (mut abc, mut cpool) = match extract_abcfile(&mut movie) {
-        Ok(res) => res,
-        Err(e) => {
-            log::error!("Error: {e}");
-            display_stats(timings, boot);
-            return ExitCode::FAILURE;
-        }
-    };
-
+    let (mut abc, mut cpool) = extract_abcfile(&mut movie)?;
     log::info!("Renaming invalid fields.");
     // Rename the symbols to something more readable
     // In fact it's the fully qualified name of a class,
@@ -187,16 +179,14 @@ fn main() -> ExitCode {
     abc.classes[0].rename_str(&mut cpool, "Game").unwrap();
 
     timings.push(("Renaming invalid fields", boot.elapsed()));
-    if let Err(err) = Renamer::new(fmt.as_ref()).rename_all(&mut abc, &mut cpool) {
-        log::error!("Error while renaming invalid symbols: {err}");
-        display_stats(timings, boot);
-        return ExitCode::FAILURE;
-    }
+    Renamer::new(fmt.as_ref())
+        .rename_all(&mut abc, &mut cpool)
+        .context("Error while renaming invalid symbols")?;
 
     log::info!("Analyzing methods and classes.");
     let packet_names = packet_names.unwrap_or_default();
     let mut detfm = Detfm::new(&mut abc, &mut cpool, fmt, packet_names);
-    detfm.simplify_init().unwrap();
+    detfm.simplify_init()?;
 
     let (classes, missing_classes) = detfm.analyze();
     if !missing_classes.is_empty() {
@@ -206,17 +196,11 @@ fn main() -> ExitCode {
     timings.push(("Analyzing methods and classes", boot.elapsed()));
 
     log::info!("Unscrambling methods.");
-    if let Err(err) = detfm.unscramble(&classes) {
-        log::error!("{err}");
-        return ExitCode::FAILURE;
-    }
+    detfm.unscramble(&classes)?;
 
     timings.push(("Unscrambling methods", boot.elapsed()));
     log::info!("Renaming interesting stuff.");
-    if let Err(err) = detfm.rename(&classes) {
-        log::error!("{err}");
-        return ExitCode::FAILURE;
-    }
+    detfm.rename(&classes)?;
     timings.push(("Renaming", boot.elapsed()));
     // log::info!("Matching user-defined classes.");
 
@@ -239,10 +223,7 @@ fn main() -> ExitCode {
 
     movie.write(&mut stream).unwrap();
     file.write_all(stream.buffer()).unwrap();
-
-    // Display stats
-    display_stats(timings, boot);
-    ExitCode::SUCCESS
+    Ok(())
 }
 
 fn load_formatter_script(file: &String) -> Result<Box<dyn Formatter>> {
@@ -290,7 +271,7 @@ fn merge_abcfile(movie: &mut Movie, mut abc: Abc, mut cpool: ConstantPool) -> Re
     Ok(())
 }
 
-type TimingPoint<'a> = (&'a str, std::time::Duration);
+type TimingPoint<'a> = (&'a str, Duration);
 fn display_stats(timings: Vec<TimingPoint>, boot: Instant) {
     if log::log_enabled!(log::Level::Debug) {
         log::debug!("Timing stats:");

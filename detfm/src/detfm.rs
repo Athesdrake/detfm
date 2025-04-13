@@ -167,7 +167,6 @@ impl<'a> Detfm<'a> {
         (classes, missings)
     }
 
-    #[allow(clippy::too_many_lines)]
     pub fn rename(&mut self, classes: &Classes) -> Result<()> {
         let ns = NsNames {
             slot: self.create_package("com.obfuscate"),
@@ -269,7 +268,30 @@ impl<'a> Detfm<'a> {
             }
         }
 
-        // Clear all static classes
+        self.clear_static_classes(classes, &ns)?;
+        self.rename_instance_trait()?;
+
+        self.find_clientbound_packets(classes, &ns)?;
+        self.create_missing_sets();
+        Ok(())
+    }
+
+    /// Rename the instance trait e.g. `Game.instance = new Game();`
+    fn rename_instance_trait(&mut self) -> Result<()> {
+        let game_class = &self.abc.classes[0];
+        for t in &game_class.ctraits {
+            if let Trait::Slot(slot) = t {
+                if slot.slot_type == game_class.name {
+                    t.rename_str(self.cpool, "instance")?;
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Clear all static classes
+    fn clear_static_classes(&mut self, classes: &Classes, ns: &NsNames) -> Result<()> {
         for cls in classes.static_classes.values() {
             let index = cls.class_index;
             let Some(class) = self.abc.classes.get_mut(index) else {
@@ -292,20 +314,6 @@ impl<'a> Detfm<'a> {
                 self.set_class_ns(wrap_class.index, ns.slot)?;
             }
         }
-
-        // Rename the instance trait
-        let game_class = &self.abc.classes[0];
-        for t in &game_class.ctraits {
-            if let Trait::Slot(slot) = t {
-                if slot.slot_type == game_class.name {
-                    t.rename_str(self.cpool, "instance")?;
-                    break;
-                }
-            }
-        }
-
-        self.find_clientbound_packets(classes, &ns)?;
-        self.create_missing_sets();
         Ok(())
     }
 
