@@ -9,7 +9,7 @@ pub struct PacketNames {
     tribulle_serverbound: HashMap<u16, String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum PktNames {
     Serverbound,
     Clientbound,

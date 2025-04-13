@@ -2,10 +2,10 @@ mod detfm;
 mod fmt;
 mod rename;
 mod renamer;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::{Parser, ValueEnum};
 use detfm::{pktnames::PacketNames, Detfm};
-use fmt::{DefaultFormatter, Formatter};
+use fmt::{DefaultFormatter, Formatter, LuaFormatter};
 use rabc::{abc::ConstantPool, Abc, Movie, StreamWriter};
 use rename::{PoolRenamer, Rename};
 use renamer::Renamer;
@@ -55,6 +55,10 @@ struct Args {
     #[arg(short = 'p', long)]
     proxy_port: Option<u16>,
 
+    /// Path to a Lua script that let you customise how to format different names in the SWF
+    #[arg(short = 'f', long = "format")]
+    format_script: Option<String>,
+
     /// The outpout file.
     #[arg()]
     output: String,
@@ -103,7 +107,16 @@ fn main() -> ExitCode {
         .unwrap();
 
     let boot = Instant::now();
-    let fmt = DefaultFormatter;
+    let fmt: Box<dyn Formatter> = match &args.format_script {
+        Some(file) => match load_formatter_script(file) {
+            Ok(fmt) => fmt,
+            Err(err) => {
+                log::error!("Error while reading {file:?}: {err}");
+                return ExitCode::FAILURE;
+            }
+        },
+        None => Box::new(DefaultFormatter),
+    };
     let packet_names = match args.config {
         Some(config) if config.is_file() => match load_config(config) {
             Err(err) => {
@@ -173,7 +186,7 @@ fn main() -> ExitCode {
     abc.classes[0].rename_str(&mut cpool, "Game").unwrap();
 
     timings.push(("Renaming invalid fields", boot.elapsed()));
-    if let Err(err) = Renamer::new(&fmt).rename_all(&mut abc, &mut cpool) {
+    if let Err(err) = Renamer::new(fmt.as_ref()).rename_all(&mut abc, &mut cpool) {
         log::error!("Error while renaming invalid symbols: {err}");
         display_stats(timings, boot);
         return ExitCode::FAILURE;
@@ -181,7 +194,7 @@ fn main() -> ExitCode {
 
     log::info!("Analyzing methods and classes.");
     let packet_names = packet_names.unwrap_or_default();
-    let mut detfm = Detfm::new(&mut abc, &mut cpool, Box::new(fmt), packet_names);
+    let mut detfm = Detfm::new(&mut abc, &mut cpool, fmt, packet_names);
     detfm.simplify_init().unwrap();
 
     let (classes, missing_classes) = detfm.analyze();
@@ -228,6 +241,13 @@ fn main() -> ExitCode {
     // Display stats
     display_stats(timings, boot);
     ExitCode::SUCCESS
+}
+
+fn load_formatter_script(file: &String) -> Result<Box<dyn Formatter>> {
+    match LuaFormatter::from_script(fs::read_to_string(file)?) {
+        Ok(fmt) => Ok(Box::new(fmt)),
+        Err(err) => Err(anyhow!("{err}")),
+    }
 }
 
 fn load_config(config_path: PathBuf) -> Result<Option<PacketNames>> {
