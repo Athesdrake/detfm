@@ -54,20 +54,20 @@ pub fn unscramble_method(
         if wrap_class.is_wrap_ins(&ins) {
             // either CallProperty or GetProperty
             // in case of the later, we need to remove the next Call
-            remove_calls += (ins.opcode == OpCode::GetProperty) as i32;
-            jump_info.remove(ins);
+            remove_calls += i32::from(ins.opcode == OpCode::GetProperty);
+            jump_info.remove(&ins);
         } else if remove_calls > 0 && matches!(ins.opcode, OpCode::Call | OpCode::GetGlobalScope) {
             // remove the Call and the GetGlobalScope that is between GetProperty and Call
-            remove_calls -= (ins.opcode == OpCode::Call) as i32;
-            jump_info.remove(ins);
+            remove_calls -= i32::from(ins.opcode == OpCode::Call);
+            jump_info.remove(&ins);
         } else if let Op::GetLex(p) = &ins.op {
             match classes.static_classes.get(&p.property) {
                 Some(sclass) => {
                     static_class = Some(sclass);
-                    jump_info.add(ins) // remove the instruction later
+                    jump_info.add(ins); // remove the instruction later
                 }
                 None if p.property == wrap_class.name => {
-                    jump_info.remove(ins);
+                    jump_info.remove(&ins);
                 }
                 None => jump_info.add(ins),
             }

@@ -91,10 +91,10 @@ impl JumpInfo {
     }
     pub fn pop(&mut self) {
         if let Some(ins) = self.instructions.pop() {
-            self.remove(ins);
+            self.remove(&ins);
         }
     }
-    pub fn remove(&mut self, ins: Instruction) {
+    pub fn remove(&mut self, ins: &Instruction) {
         self.removed.push(ins.addr);
     }
 

@@ -77,7 +77,7 @@ impl Display for Compression {
             Compression::Lzma => "lzma",
             Compression::None => "none",
         };
-        write!(f, "{}", value)
+        write!(f, "{value}")
     }
 }
 impl From<Compression> for rabc::Compression {
@@ -90,6 +90,8 @@ impl From<Compression> for rabc::Compression {
     }
 }
 
+#[allow(clippy::too_many_lines)]
+#[allow(clippy::print_stdout)]
 fn main() -> ExitCode {
     let args = Args::parse();
     let mut timings = Vec::new();
@@ -141,7 +143,7 @@ fn main() -> ExitCode {
 
     if args.unpack && movie.frame1().is_some() {
         log::info!("Unpacking.");
-        let res = unpack_movie(movie);
+        let res = unpack_movie(&movie);
         timings.push(("Unpacking", boot.elapsed()));
         movie = match res {
             Ok(movie) => movie,
@@ -155,7 +157,7 @@ fn main() -> ExitCode {
     let (mut abc, mut cpool) = match extract_abcfile(&mut movie) {
         Ok(res) => res,
         Err(e) => {
-            log::error!("Error: {}", e);
+            log::error!("Error: {e}");
             display_stats(timings, boot);
             return ExitCode::FAILURE;
         }
@@ -169,7 +171,7 @@ fn main() -> ExitCode {
         if !Renamer::invalid(name) {
             continue;
         }
-        let pos = name.find('_').map(|n| n + 1).unwrap_or(0);
+        let pos = name.find('_').map_or(0, |n| n + 1);
         let mut new_name = format!("${}", &name[pos..]);
         if Renamer::invalid(&new_name) {
             new_name = fmt.symbols(*id);
@@ -211,14 +213,15 @@ fn main() -> ExitCode {
 
     timings.push(("Unscrambling methods", boot.elapsed()));
     log::info!("Renaming interesting stuff.");
-    if let Err(err) = detfm.rename(classes) {
+    if let Err(err) = detfm.rename(&classes) {
         log::error!("{err}");
         return ExitCode::FAILURE;
     }
     timings.push(("Renaming", boot.elapsed()));
     // log::info!("Matching user-defined classes.");
 
-    if let Some(port) = args.proxy_port.or(args.enable_proxy.then_some(11801)) {
+    let default_port = args.enable_proxy.then_some(11801);
+    if let Some(port) = args.proxy_port.or(default_port) {
         if let Some((from, to)) = detfm.proxy2localhost(port) {
             log::info!("Proxying to {to:?} (was {from:?}).");
         } else {
@@ -258,9 +261,9 @@ fn load_config(config_path: PathBuf) -> Result<Option<PacketNames>> {
     Ok(packet_names)
 }
 
-fn unpack_movie(movie: Movie) -> Result<Movie> {
+fn unpack_movie(movie: &Movie) -> Result<Movie> {
     let mut writer = StreamWriter::default();
-    let mut unpack = Unpacker::new(&movie)?;
+    let mut unpack = Unpacker::new(movie)?;
 
     if let Some(missing) = unpack.unpack(&mut writer)? {
         bail!("Unable to find binary with name: {}", missing);

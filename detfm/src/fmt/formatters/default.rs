@@ -14,27 +14,27 @@ impl Formatter for DefaultFormatter {
         }
     }
     fn classes(&self, counter: u32) -> String {
-        format!("class_{:03}", counter)
+        format!("class_{counter:03}")
     }
     fn errors(&self, counter: u32) -> String {
-        format!("error{:}", counter)
+        format!("error{counter:}")
     }
     fn symbols(&self, id: u16) -> String {
-        format!("ClassSymbol_{:}", id)
+        format!("ClassSymbol_{id:}")
     }
-    fn packets(&self, side: &PktNames, pkt_id: u16, name: String) -> String {
+    fn packets(&self, side: PktNames, pkt_id: u16, name: String) -> String {
         let (categ_id, id) = (pkt_id >> 8, pkt_id & 0xff);
         match side {
-            PktNames::Serverbound => format!("SPacket{:02x}{:02x}{}", categ_id, id, name),
-            PktNames::Clientbound => format!("CPacket{:02x}{:02x}{}", categ_id, id, name),
-            PktNames::TribulleClientbound => format!("TCPacket_{:04x}{}", pkt_id, name),
-            PktNames::TribulleServerbound => format!("TSPacket_{:04x}{}", pkt_id, name),
+            PktNames::Serverbound => format!("SPacket{categ_id:02x}{id:02x}{name}"),
+            PktNames::Clientbound => format!("CPacket{categ_id:02x}{id:02x}{name}"),
+            PktNames::TribulleClientbound => format!("TCPacket_{pkt_id:04x}{name}"),
+            PktNames::TribulleServerbound => format!("TSPacket_{pkt_id:04x}{name}"),
         }
     }
     fn subhandler(&self, category: u8) -> String {
-        format!("PacketSubHandler_{:02x}", category)
+        format!("PacketSubHandler_{category:02x}")
     }
     fn unknown_packet(&self, counter: u32) -> String {
-        format!("CPacket_u{:02x}", counter)
+        format!("CPacket_u{counter:02x}")
     }
 }

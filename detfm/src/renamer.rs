@@ -23,7 +23,7 @@ pub struct Counters {
     classes: u32,
     consts: u32,
     functions: u32,
-    _names: u32,
+    // _names: u32,
     vars: u32,
     methods: u32,
 }
@@ -31,7 +31,7 @@ impl Counters {
     counter!(classes);
     counter!(consts);
     counter!(functions);
-    counter!(_names);
+    // counter!(_names);
     counter!(vars);
     counter!(methods);
 }
@@ -44,9 +44,10 @@ pub struct Renamer<'a> {
 
 impl<'a> Renamer<'a> {
     pub fn new(fmt: &'a dyn Formatter) -> Self {
-        let counters = Default::default();
-        Self { fmt, counters }
+        let counters = Counters::default();
+        Self { counters, fmt }
     }
+    #[must_use]
     pub fn invalid(name: &str) -> bool {
         name.chars().any(|c| !c.is_alphabetic() && c != '_')
     }
@@ -86,6 +87,7 @@ impl<'a> Renamer<'a> {
         Ok(())
     }
 
+    #[allow(clippy::cast_possible_truncation)]
     fn rename_invalid_method(&mut self, cpool: &mut ConstantPool, method: &Method) -> Result<()> {
         for (i, err) in method.exceptions.iter().enumerate() {
             self.rename_invalid_exception(cpool, err, i as u32)?;

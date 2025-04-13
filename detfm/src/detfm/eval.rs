@@ -10,6 +10,7 @@ pub enum StackValue {
 }
 
 impl StackValue {
+    #[must_use]
     pub fn op(self, other: StackValue, opcode: OpCode) -> Self {
         match (self, other, opcode) {
             (Self::Number(a), Self::Number(b), OpCode::Add) => (a + b).into(),
@@ -21,6 +22,7 @@ impl StackValue {
         }
     }
 
+    #[must_use]
     pub fn to_bool(&self) -> StackValue {
         Self::Boolean(match self {
             StackValue::Invalid() => false,

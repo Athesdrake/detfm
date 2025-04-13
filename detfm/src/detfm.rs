@@ -1,8 +1,13 @@
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::similar_names
+)]
 use crate::{
     fmt::Formatter,
     rename::{PoolRenamer, Rename},
 };
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use classes::{Classes, DetfmClass, StaticClass, WrapClass};
 use itertools::Itertools;
 use ns::NsNames;
@@ -115,7 +120,7 @@ impl<'a> Detfm<'a> {
         };
 
         if let Some((i, _)) = self.cpool.multinames.iter().find_position(is_bytearray) {
-            self.byte_array = Some(i as u32)
+            self.byte_array = Some(i as u32);
         }
 
         let mut classes = Classes::default();
@@ -162,7 +167,8 @@ impl<'a> Detfm<'a> {
         (classes, missings)
     }
 
-    pub fn rename(&mut self, classes: Classes) -> Result<()> {
+    #[allow(clippy::too_many_lines)]
+    pub fn rename(&mut self, classes: &Classes) -> Result<()> {
         let ns = NsNames {
             slot: self.create_package("com.obfuscate"),
             pkt: self.create_package("packets"),
@@ -202,9 +208,9 @@ impl<'a> Detfm<'a> {
             class.itraits[0].metadatas_mut().push(meta_index);
         }
 
-        self.rename_writeany(&classes)?;
-        self.rename_readany(&classes)?;
-        self.rename_interface_proxy(&classes)?;
+        self.rename_writeany(classes)?;
+        self.rename_readany(classes)?;
+        self.rename_interface_proxy(classes)?;
 
         let simple_push = OpSeq([OpCode::PushDouble, OpCode::ConstructSuper]);
         let double_push = OpSeq([
@@ -239,10 +245,10 @@ impl<'a> Detfm<'a> {
                         [Op::PushDouble(p1), _] => (0, get_code(p1)),
                         _ => bail!(
                             "Unable to find serverbound packet's code: {}",
-                            self.cpool.fqn(klass).unwrap_or(index.to_string())
+                            self.cpool.fqn(klass).unwrap_or_else(|| index.to_string())
                         ),
                     };
-                    let name = self.format_packet2(&PktNames::Serverbound, categ_id, pkt_id);
+                    let name = self.format_packet2(PktNames::Serverbound, categ_id, pkt_id);
                     klass.rename(self.cpool, name)?;
                     to_rename.push((index, ns.spkt));
                 } else if super_name == cpkt_name {
@@ -288,7 +294,7 @@ impl<'a> Detfm<'a> {
             }
         }
 
-        self.find_clientbound_packets(&classes, &ns)?;
+        self.find_clientbound_packets(classes, &ns)?;
         self.create_missing_sets();
         Ok(())
     }
@@ -440,7 +446,7 @@ impl<'a> Detfm<'a> {
                 });
                 let call_buffer_method = [OpCode::GetProperty, OpCode::CallProperty];
                 let prop = match prog.skip_until_match(&call_buffer_method)[..] {
-                    [prop, Op::CallProperty(p)] if prop == &getbuffer_op => p.property,
+                    [op, Op::CallProperty(p)] if op == &getbuffer_op => p.property,
                     _ => continue,
                 };
 
@@ -448,7 +454,10 @@ impl<'a> Detfm<'a> {
                 // so we work around it
                 let name = match self.cpool.qname(method.return_type) {
                     Some(name) if name == "Boolean" => "readBoolean".to_owned(),
-                    _ => self.cpool.qname(prop).ok_or(anyhow!("Invalid property"))?,
+                    _ => match self.cpool.qname(prop) {
+                        Some(n) => n,
+                        None => bail!("Invalid property"),
+                    },
                 };
                 t.rename(self.cpool, name)?;
             } else if !read_varint {
@@ -492,17 +501,17 @@ impl<'a> Detfm<'a> {
         Ok(())
     }
 
-    fn get_known_name(&self, side: &PktNames, pkt_id: u16) -> String {
-        let fallback = || PKT_NAMES.get(side, pkt_id);
-        let name = self.packet_names.get(side, pkt_id);
+    fn get_known_name(&self, side: PktNames, pkt_id: u16) -> String {
+        let fallback = || PKT_NAMES.get(&side, pkt_id);
+        let name = self.packet_names.get(&side, pkt_id);
         name.or_else(fallback).cloned().unwrap_or_default()
     }
-    fn format_packet(&self, side: &PktNames, pkt_id: u16) -> String {
+    fn format_packet(&self, side: PktNames, pkt_id: u16) -> String {
         let name = self.get_known_name(side, pkt_id);
         self.fmt.packets(side, pkt_id, name)
     }
-    fn format_packet2(&self, side: &PktNames, categ_id: u8, pkt_id: u8) -> String {
-        self.format_packet(side, ((categ_id as u16) << 8) | pkt_id as u16)
+    fn format_packet2(&self, side: PktNames, categ_id: u8, pkt_id: u8) -> String {
+        self.format_packet(side, (u16::from(categ_id) << 8) | u16::from(pkt_id))
     }
 
     fn find_clientbound_packets(&mut self, classes: &Classes, ns: &NsNames) -> Result<()> {
@@ -563,7 +572,7 @@ impl<'a> Detfm<'a> {
                             self.set_class_ns(i, ns.cpkt)?;
                             self.cpool.rename_multiname(
                                 class_name,
-                                self.format_packet2(&PktNames::Clientbound, category, code),
+                                self.format_packet2(PktNames::Clientbound, category, code),
                             )?;
                         }
                         prog.next();
@@ -642,7 +651,7 @@ impl<'a> Detfm<'a> {
                     let Some((i, _)) = self.find_class_by_name(p.property) else {
                         break;
                     };
-                    let name = self.format_packet2(&PktNames::Clientbound, category, code);
+                    let name = self.format_packet2(PktNames::Clientbound, category, code);
                     self.abc.classes[i].rename(self.cpool, name)?;
                     self.set_class_ns(i, ns.cpkt)?;
                     break;
@@ -760,7 +769,7 @@ impl<'a> Detfm<'a> {
                 continue;
             };
             // rename it!
-            let name = self.get_known_name(&PktNames::TribulleClientbound, code);
+            let name = self.get_known_name(PktNames::TribulleClientbound, code);
             self.abc.classes[class].rename(self.cpool, name)?;
             self.set_class_ns(class, ns.tcpkt)?;
         }
@@ -845,7 +854,7 @@ impl<'a> Detfm<'a> {
             let Some(&code) = addr2id.get(&prog.get().targets[i as usize + 1]) else {
                 continue;
             };
-            let name = self.format_packet(&PktNames::TribulleServerbound, code);
+            let name = self.format_packet(PktNames::TribulleServerbound, code);
             self.abc.classes[cls].rename(self.cpool, name)?;
             self.set_class_ns(cls, ns.tspkt)?;
         }
@@ -942,7 +951,7 @@ impl<'a> Detfm<'a> {
 }
 
 impl Detfm<'_> {
-    /// Check if the given class is the WrapClass with the following attributes
+    /// Check if the given class is the `WrapClass` with the following attributes
     ///  - All traits are class methods
     ///  - All methods takes a single parameter and returns it
     ///  - The param and return types are the same

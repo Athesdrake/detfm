@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use std::{collections::HashMap, sync::LazyLock};
 
 #[derive(Debug, Default)]
@@ -27,6 +27,7 @@ impl PacketNames {
         })
     }
 
+    #[must_use]
     pub fn get(&self, category: &PktNames, code: u16) -> Option<&String> {
         match category {
             PktNames::Clientbound => &self.clientbound,
@@ -43,17 +44,19 @@ impl PacketNames {
     fn json_to_map(value: &jzon::JsonValue) -> Result<HashMap<u16, String>> {
         value
             .as_object()
-            .ok_or(anyhow!("Json entries should be objects"))?
+            .ok_or_else(|| anyhow!("Json entries should be objects"))?
             .iter()
             .map(|(key, value)| {
                 let key = u16::from_str_radix(key, 16)
                     .context("Keys should be packet's code in hexadecimals")?;
-                let value = value.as_str().ok_or(anyhow!("Value should be a string"))?;
+                let Some(value) = value.as_str() else {
+                    bail!("Value should be a string")
+                };
                 let mut name = String::with_capacity(value.len());
                 for part in value.split(['_', ' ']) {
                     let mut it = part.chars();
                     name.extend(it.next().map(|c| c.to_ascii_uppercase()).into_iter());
-                    name.extend(it.filter(|c| c.is_ascii_alphabetic()));
+                    name.extend(it.filter(char::is_ascii_alphabetic));
                 }
 
                 Ok((key, name))

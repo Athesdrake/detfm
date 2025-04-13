@@ -17,9 +17,9 @@ impl PoolRenamer for ConstantPool {
     }
 
     fn replace_string(&mut self, old: &str, new: &str) {
-        for s in self.strings.iter_mut() {
+        for s in &mut self.strings {
             if s == old {
-                *s = new.to_owned();
+                new.clone_into(s);
             }
         }
     }

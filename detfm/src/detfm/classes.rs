@@ -28,7 +28,7 @@ impl WrapClass {
         Self {
             index,
             name: class.name,
-            methods: class.ctraits.iter().map(|t| t.name()).collect(),
+            methods: class.ctraits.iter().map(Trait::name).collect(),
         }
     }
 
@@ -131,21 +131,21 @@ where
         match ins.op {
             Op::GetLocal0() | Op::PushScope() => {}
             Op::PushByte(p) => stack.push_back(p.value.into()),
-            Op::PushShort(p) => stack.push_back((p.value as i32).into()),
+            Op::PushShort(p) => stack.push_back(i32::from(p.value).into()),
             Op::PushInt(p) => stack.push_back((*cpool.get_int(p.value)?).into()),
             Op::Add() => {
                 let value = match (stack.pop_back(), stack.pop_back()) {
                     (Some(a), Some(b)) => a + b,
                     _ => bail!("Cannot pop value from an empty stack."),
                 };
-                stack.push_back(value)
+                stack.push_back(value);
             }
             Op::Divide() => {
                 let value = match (stack.pop_back(), stack.pop_back()) {
                     (Some(a), Some(b)) => a / b,
                     _ => bail!("Cannot pop value from an empty stack."),
                 };
-                stack.push_back(value)
+                stack.push_back(value);
             }
             Op::ReturnValue() => match stack.pop_back() {
                 Some(value) => return Ok(value),
@@ -177,6 +177,7 @@ impl StaticClassNumber {
     }
 }
 
+#[allow(clippy::struct_field_names)]
 #[derive(Debug, Default)]
 pub struct Classes {
     pub wrap_class: Option<WrapClass>,

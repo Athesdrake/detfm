@@ -39,6 +39,7 @@ pub fn simplify_expressions(
     for ins in &instructions {
         let mut new_ins = ins.clone();
         match &ins.op {
+            #[allow(clippy::cast_possible_wrap)]
             Op::PushByte(arg) => stack.push((arg.value as i8).into()),
             Op::PushShort(arg) => stack.push(arg.value.into()),
             Op::PushInt(arg) => stack.push((*cpool.get_int(arg.value)?).into()),
@@ -168,13 +169,15 @@ fn edit_ins(cpool: &mut ConstantPool, ins: &mut Instruction, value: &StackValue)
             });
         }
         StackValue::Boolean(value) => {
-            ins.opcode = match *value {
-                true => OpCode::PushTrue,
-                false => OpCode::PushFalse,
+            ins.opcode = if *value {
+                OpCode::PushTrue
+            } else {
+                OpCode::PushFalse
             };
-            ins.op = match *value {
-                true => Op::PushTrue(),
-                false => Op::PushFalse(),
+            ins.op = if *value {
+                Op::PushTrue()
+            } else {
+                Op::PushFalse()
             };
         }
         StackValue::Invalid() => {

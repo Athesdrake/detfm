@@ -88,7 +88,7 @@ impl Formatter for LuaFormatter {
     fn symbols(&self, id: u16) -> String {
         callf!(self.format_symbol, id => self.fmt.symbols(id))
     }
-    fn packets(&self, side: &PktNames, pkt_id: u16, name: String) -> String {
+    fn packets(&self, side: PktNames, pkt_id: u16, name: String) -> String {
         let (categ_id, id) = (pkt_id >> 8, pkt_id & 0xff);
         callf!(self.format_packet, side, categ_id, id, name => self.fmt.packets(side, pkt_id, name))
     }
