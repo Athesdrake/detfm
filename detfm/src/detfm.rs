@@ -304,6 +304,7 @@ impl<'a> Detfm<'a> {
             };
             if left.chars().all(|c| c.is_ascii_digit() || c == '.')
                 && right.chars().all(|c| c.is_ascii_digit() || c == '-')
+                && right.chars().any(|c| c == '-')
             {
                 let mut previous = format!("127.0.0.1:{port}");
                 swap(&mut previous, string);
