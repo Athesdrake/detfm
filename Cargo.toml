@@ -1,5 +1,8 @@
-[package]
-name = "detfm"
+[workspace]
+members = ["detfm", "detfm-cli"]
+resolver = "2"
+
+[workspace.package]
 version = "1.0.0"
 edition = "2021"
 
@@ -7,27 +10,19 @@ edition = "2021"
 [profile.release]
 debug = true
 
-[dependencies]
+[workspace.dependencies]
+detfm = { path = "detfm" }
+detfm-cli = { path = "detfm-cli" }
+
 rabc = { git = "https://github.com/Athesdrake/rabc.git", tag = "v0.2.2" }
 unpacker = { git = "https://github.com/Athesdrake/unpacker.git", branch = "rust-rewrite" }
-clap = { version = "4.5.32", features = ["derive"] }
-log = "0.4.26"
+
+log = "0.4.27"
 stderrlog = "0.6.0"
 jzon = "0.12.5"
 thiserror = "2.0.12"
 anyhow = "1.0.97"
 itertools = "0.14.0"
-mlua = { version = "0.10.3", optional = true }
-
-[features]
-lua = []
-lua51 = ["dep:mlua", "mlua/lua51", "lua"]
-lua52 = ["dep:mlua", "mlua/lua52", "lua"]
-lua53 = ["dep:mlua", "mlua/lua53", "lua"]
-lua54 = ["dep:mlua", "mlua/lua54", "lua"]
-luajit = ["dep:mlua", "mlua/luajit", "lua"]
-luajit52 = ["dep:mlua", "mlua/luajit52", "lua"]
-default = ["lua54"]
 
 [workspace.lints.clippy]
 pedantic = { level = "warn", priority = -2 }

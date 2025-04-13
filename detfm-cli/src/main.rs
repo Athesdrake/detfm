@@ -1,14 +1,13 @@
-mod detfm;
-mod fmt;
-mod rename;
-mod renamer;
 use anyhow::{anyhow, bail, Result};
 use clap::{Parser, ValueEnum};
-use detfm::{pktnames::PacketNames, Detfm};
-use fmt::{DefaultFormatter, Formatter, LuaFormatter};
+use detfm::{
+    detfm::pktnames::PacketNames,
+    fmt::{DefaultFormatter, Formatter, LuaFormatter},
+    rename::{PoolRenamer, Rename},
+    renamer::Renamer,
+    Detfm,
+};
 use rabc::{abc::ConstantPool, Abc, Movie, StreamWriter};
-use rename::{PoolRenamer, Rename};
-use renamer::Renamer;
 use std::{
     fmt::Display,
     fs::{self, File},
