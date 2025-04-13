@@ -63,25 +63,25 @@ pub fn simplify_expressions(
             Op::Subtract() | Op::Multiply() | Op::Divide() | Op::Add() => {
                 let a = stack.pop().ok_or(SimplifyError::EmptyStack)?;
                 let b = stack.pop().ok_or(SimplifyError::EmptyStack)?;
-                stack.push(a.op(b, ins.opcode));
-                match stack.last().unwrap() {
-                    StackValue::Invalid() => {}
-                    value => {
-                        modified = true;
-                        // remove_ins(&mut new_instructions, &mut new_ins, &mut jump_info, 2);
-                        jump_info.pop();
-                        jump_info.pop();
-                        edit_ins(cpool, &mut new_ins, value);
-                    }
+                let value = a.op(b, ins.opcode);
+                if !matches!(value, StackValue::Invalid()) {
+                    modified = true;
+                    // remove_ins(&mut new_instructions, &mut new_ins, &mut jump_info, 2);
+                    jump_info.pop();
+                    jump_info.pop();
+                    edit_ins(cpool, &mut new_ins, &value);
                 }
+                stack.push(value);
             }
             Op::Negate() => {
-                if let Some(StackValue::Number(value)) = stack.last_mut() {
-                    *value = -*value;
-                    modified = true;
-                    // remove_ins(&mut new_instructions, &mut new_ins, &mut jump_info, 1);
-                    jump_info.pop();
-                    edit_ins(cpool, &mut new_ins, stack.last().unwrap());
+                if let Some(stack_value) = stack.last_mut() {
+                    if let StackValue::Number(value) = stack_value {
+                        *value = -*value;
+                        modified = true;
+                        // remove_ins(&mut new_instructions, &mut new_ins, &mut jump_info, 1);
+                        jump_info.pop();
+                        edit_ins(cpool, &mut new_ins, stack_value);
+                    }
                 }
             }
             Op::CallProperty(arg)

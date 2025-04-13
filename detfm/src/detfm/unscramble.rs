@@ -1,6 +1,10 @@
 use crate::detfm::classes::StaticClass;
 
-use super::{classes::Classes, jump_info::JumpInfo, Detfm};
+use super::{
+    classes::Classes,
+    jump_info::{JumpInfo, JumpInfoError},
+    Detfm,
+};
 use rabc::{
     abc::parser::{
         opargs::{PushDoubleArg, PushStringArg},
@@ -20,6 +24,8 @@ pub enum UnscrambleError {
     // InvalidTargets(usize, usize),
     // #[error("Invalid instruction with jump targets: {0:?}")]
     // InvalidInstructionTargets(Instruction),
+    #[error(transparent)]
+    JumpInfoError(#[from] JumpInfoError),
     #[error(transparent)]
     RabcError(#[from] RabcError),
 }
@@ -78,7 +84,7 @@ pub fn unscramble_method(
 
     if jump_info.modified() {
         let method = &mut detfm.abc.methods[index];
-        let new_instructions = jump_info.fix_addresses(method).unwrap();
+        let new_instructions = jump_info.fix_addresses(method)?;
         method.save_instructions(&new_instructions)?;
     }
 

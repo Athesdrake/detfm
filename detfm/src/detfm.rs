@@ -221,8 +221,12 @@ impl<'a> Detfm<'a> {
         let super_construct_seq = double_push | simple_push;
 
         if let (Some(base_spkt), Some(base_cpkt)) = (classes.base_spkt, classes.base_cpkt) {
-            let spkt_name = self.cpool.str(self.abc.classes[base_spkt].name).unwrap();
-            let cpkt_name = self.cpool.str(self.abc.classes[base_cpkt].name).unwrap();
+            let get_base_pktname = |i: usize| match self.cpool.str(self.abc.classes[i].name) {
+                Some(name) => Ok(name),
+                None => bail!("Invalid class name {i}"),
+            };
+            let spkt_name = get_base_pktname(base_spkt)?;
+            let cpkt_name = get_base_pktname(base_cpkt)?;
 
             let mut clientbound_counter = 0;
             let mut to_rename = Vec::new();
@@ -230,8 +234,9 @@ impl<'a> Detfm<'a> {
                 if klass.super_name == 0 {
                     continue;
                 }
-
-                let super_name = self.cpool.str(klass.super_name).unwrap();
+                let Some(super_name) = self.cpool.str(klass.super_name) else {
+                    bail!("Invalid super nmae for class {klass:?}")
+                };
                 if super_name == spkt_name {
                     let instructions = self.abc.get_method(klass.iinit)?.parse()?;
                     let mut prog = instructions.iter_prog();
@@ -267,20 +272,25 @@ impl<'a> Detfm<'a> {
         // Clear all static classes
         for cls in classes.static_classes.values() {
             let index = cls.class_index;
-            let class = self.abc.classes.get_mut(index).unwrap();
+            let Some(class) = self.abc.classes.get_mut(index) else {
+                continue;
+            };
             let cinit = class.cinit as usize;
             class.ctraits.clear();
             class.itraits.clear();
             class.rename(self.cpool, format!("$StaticClass_{index:04}"))?;
             self.set_class_ns(index, ns.slot)?;
-            self.abc.methods.get_mut(cinit).unwrap().code.clear();
+            if let Some(m) = self.abc.methods.get_mut(cinit) {
+                m.code.clear();
+            }
         }
         if let Some(wrap_class) = &classes.wrap_class {
-            let class = self.abc.classes.get_mut(wrap_class.index).unwrap();
-            class.ctraits.clear();
-            class.itraits.clear();
-            class.rename_str(self.cpool, "$WrapperClass")?;
-            self.set_class_ns(wrap_class.index, ns.slot)?;
+            if let Some(class) = self.abc.classes.get_mut(wrap_class.index) {
+                class.ctraits.clear();
+                class.itraits.clear();
+                class.rename_str(self.cpool, "$WrapperClass")?;
+                self.set_class_ns(wrap_class.index, ns.slot)?;
+            }
         }
 
         // Rename the instance trait
