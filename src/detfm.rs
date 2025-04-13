@@ -294,15 +294,17 @@ impl<'a> Detfm<'a> {
     }
 
     pub fn proxy2localhost(&mut self, port: u16) -> Option<(String, String)> {
-        let specials: HashSet<char> = ".:-".chars().collect();
         for string in &mut self.cpool.strings {
             // min size should be: 0.0.0.0:0-0
             if string.len() < 11 {
                 continue;
             }
-            let chars = string.chars().collect();
-            let mut diff = specials.symmetric_difference(&chars);
-            if diff.all(|c| c.is_ascii_digit()) {
+            let Some((left, right)) = string.split_once(':') else {
+                continue;
+            };
+            if left.chars().all(|c| c.is_ascii_digit() || c == '.')
+                && right.chars().all(|c| c.is_ascii_digit() || c == '-')
+            {
                 let mut previous = format!("127.0.0.1:{port}");
                 swap(&mut previous, string);
                 return Some((previous, string.clone()));

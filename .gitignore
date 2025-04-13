@@ -1,4 +1,5 @@
 /target
 
-/subprojects/*
-!/subprojects/*.wrap
+flamegraph.svg
+perf.data
+perf.data.old
