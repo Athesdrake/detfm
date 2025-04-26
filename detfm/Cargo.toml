@@ -17,7 +17,7 @@ mlua = { version = "0.10.3", optional = true }
 
 [features]
 lua = []
-lua-vendored = ["dep:mlua", "mlua/vendored", "lua"]
+lua-vendored = ["mlua/vendored"]
 lua51 = ["dep:mlua", "mlua/lua51", "lua"]
 lua52 = ["dep:mlua", "mlua/lua52", "lua"]
 lua53 = ["dep:mlua", "mlua/lua53", "lua"]
