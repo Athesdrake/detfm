@@ -14,14 +14,14 @@ debug = true
 [workspace.dependencies]
 detfm = { path = "detfm" }
 
-rabc = { git = "https://github.com/Athesdrake/rabc.git", tag = "v0.2.2" }
+rabc = { git = "https://github.com/Athesdrake/rabc.git", tag = "v0.3.0" }
 unpacker = { git = "https://github.com/Athesdrake/unpacker.git", branch = "rust-rewrite" }
 
 log = "0.4.27"
 stderrlog = "0.6.0"
 jzon = "0.12.5"
 thiserror = "2.0.12"
-anyhow = "1.0.97"
+anyhow = "1.0.98"
 itertools = "0.14.0"
 
 [workspace.lints.clippy]
