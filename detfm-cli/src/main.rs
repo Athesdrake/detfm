@@ -249,7 +249,7 @@ fn unpack_movie(movie: &Movie) -> Result<Movie> {
     if let Some(missing) = unpack.unpack(&mut writer)? {
         bail!("Unable to find binary with name: {}", missing);
     }
-    Ok(Movie::from_buffer(writer.buffer().clone())?)
+    Ok(Movie::from_buffer(writer.buffer())?)
 }
 
 fn extract_abcfile(movie: &mut Movie) -> Result<(Abc, ConstantPool)> {

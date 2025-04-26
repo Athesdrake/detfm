@@ -1,5 +1,5 @@
 [workspace]
-members = ["detfm", "detfm-cli"]
+members = ["detfm", "detfm-cli", "detfm-wasm"]
 resolver = "2"
 
 [workspace.package]
@@ -8,11 +8,11 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [profile.release]
+lto = true
 debug = true
 
 [workspace.dependencies]
 detfm = { path = "detfm" }
-detfm-cli = { path = "detfm-cli" }
 
 rabc = { git = "https://github.com/Athesdrake/rabc.git", tag = "v0.2.2" }
 unpacker = { git = "https://github.com/Athesdrake/unpacker.git", branch = "rust-rewrite" }

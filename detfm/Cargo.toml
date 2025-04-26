@@ -17,13 +17,13 @@ mlua = { version = "0.10.3", optional = true }
 
 [features]
 lua = []
+lua-vendored = ["dep:mlua", "mlua/vendored", "lua"]
 lua51 = ["dep:mlua", "mlua/lua51", "lua"]
 lua52 = ["dep:mlua", "mlua/lua52", "lua"]
 lua53 = ["dep:mlua", "mlua/lua53", "lua"]
 lua54 = ["dep:mlua", "mlua/lua54", "lua"]
 luajit = ["dep:mlua", "mlua/luajit", "lua"]
 luajit52 = ["dep:mlua", "mlua/luajit52", "lua"]
-default = ["lua54"]
 
 [lints]
 workspace = true
