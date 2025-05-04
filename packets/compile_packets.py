@@ -2,7 +2,7 @@ import argparse
 import json
 import os
 
-MAP_TYPE = "std::unordered_map<const char*, std::string>"
+MAP_TYPE = "std::unordered_map<std::string, std::string>"
 HEADER = """
 #include <string>
 #include <unordered_map>

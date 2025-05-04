@@ -23,7 +23,7 @@ namespace abc = swf::abc;
 
 class detfm {
     using MethodIterator = std::vector<abc::Method>::iterator;
-    using PacketMap      = std::unordered_map<const char*, std::string>;
+    using PacketMap      = std::unordered_map<std::string, std::string>;
 
 public:
     uint32_t ByteArray    = 0;
