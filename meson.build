@@ -2,7 +2,7 @@ project(
     'detfm',
     'cpp',
     default_options: ['cpp_std=c++17'],
-    version: '0.5.2',
+    version: '0.5.3',
 )
 
 unpacker = dependency('unpack')
